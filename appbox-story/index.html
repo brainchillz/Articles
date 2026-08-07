@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AppBox — WSL-class Linux on Apple Silicon, from the menu bar</title>
+<style>
+  /* Same token system as the rest of the family. */
+  :root {
+    --bg: #efece6; --surface: #f9f7f3; --well: #efece6;
+    --line: #d5cfc4; --line-soft: #e3ded5;
+    --text: #2b2721; --muted: #767061;
+    --accent: #a84a0c; --ok: #5f7d3d; --warn: #96701d; --crit: #a83440;
+    --pool: #33708f;
+    --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1b1c1e; --surface: #212225; --well: #161719;
+      --line: #3a3833; --line-soft: #2f2e2b;
+      --text: #d8d4cc; --muted: #8f8b82;
+      --accent: #c1550f; --ok: #82a35c; --warn: #d09c3c; --crit: #cf545e;
+      --pool: #5f93ad;
+    }
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 16px/1.65 var(--sans);
+    padding: 48px 20px 90px;
+  }
+  .page { max-width: 880px; margin: 0 auto; }
+  .prose { max-width: 72ch; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 12px;
+  }
+  h1 { font-size: 34px; line-height: 1.2; letter-spacing: -0.01em; font-weight: 750;
+       text-wrap: balance; margin-bottom: 14px; }
+  .dek { font-size: 18px; color: var(--muted); max-width: 62ch; margin-bottom: 10px; }
+  .byline { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-bottom: 44px; }
+  .byline b { color: var(--text); font-weight: 600; }
+
+  h2 {
+    font-size: 22px; font-weight: 700; margin: 54px 0 14px;
+    padding-top: 22px; border-top: 1px solid var(--line);
+  }
+  h3 { font-size: 16px; font-weight: 700; margin: 26px 0 8px; }
+  p { margin: 0 0 14px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: var(--mono); font-size: 0.86em;
+    background: var(--well); border: 1px solid var(--line-soft);
+    border-radius: 2px; padding: 1px 5px;
+  }
+  pre {
+    font-family: var(--mono); font-size: 13px; line-height: 1.7;
+    background: var(--well); border: 1px solid var(--line-soft);
+    border-radius: 2px; padding: 12px 14px; margin: 0 0 14px;
+    overflow-x: auto;
+  }
+  pre code { background: none; border: none; padding: 0; font-size: inherit; }
+  pre .c { color: var(--muted); }
+  ul, ol { margin: 0 0 14px 1.3em; }
+  li { margin-bottom: 6px; }
+  strong { font-weight: 650; }
+
+  figure { margin: 22px 0 26px; }
+  figure img {
+    display: block; width: 100%; height: auto;
+    border: 1px solid var(--line); border-radius: 3px;
+  }
+  figure.narrow { max-width: 560px; }
+  figure.mid { max-width: 700px; }
+  figcaption {
+    font-family: var(--mono); font-size: 12px; color: var(--muted);
+    margin-top: 8px; line-height: 1.5;
+  }
+  .fig-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+  @media (max-width: 700px) { .fig-pair { grid-template-columns: 1fr; } }
+
+  .callout {
+    border: 1px solid var(--line-soft); border-left: 2px solid var(--accent);
+    border-radius: 2px; padding: 12px 16px; margin: 18px 0;
+    font-size: 14.5px;
+  }
+  .callout.olive { border-left-color: var(--ok); }
+  .callout .k { font-family: var(--mono); font-size: 11px; text-transform: uppercase;
+                letter-spacing: 0.08em; color: var(--accent); display: block; margin-bottom: 4px; }
+  .callout.olive .k { color: var(--ok); }
+
+  .flow { margin: 24px 0 8px; overflow-x: auto; }
+  .flow-row { display: flex; align-items: stretch; gap: 0; min-width: 640px; }
+  .fnode {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 2px;
+    padding: 10px 14px; min-width: 132px; flex: 1;
+  }
+  .fnode .t { font-weight: 650; font-size: 14px; }
+  .fnode .s { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
+  .fnode.accent { border-top: 2px solid var(--accent); }
+  .fnode.ok { border-top: 2px solid var(--ok); }
+  .fnode.pool { border-top: 2px solid var(--pool); }
+  .farrow {
+    align-self: center; font-family: var(--mono); font-size: 11px; color: var(--muted);
+    padding: 0 10px; white-space: nowrap; text-align: center; flex: none;
+  }
+  .farrow b { display: block; color: var(--accent); font-size: 14px; }
+  .flow-note { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-top: 10px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; margin: 18px 0 8px;
+          background: var(--surface); border: 1px solid var(--line); }
+  th {
+    text-align: left; padding: 8px 12px; background: var(--well);
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted);
+    border-bottom: 1px solid var(--line);
+  }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td.y { color: var(--ok); font-family: var(--mono); font-size: 13px; }
+  td.n { color: var(--muted); font-family: var(--mono); font-size: 13px; }
+  td.p { color: var(--warn); font-family: var(--mono); font-size: 13px; }
+  .tablewrap { overflow-x: auto; }
+  .tablewrap table.wide { min-width: 780px; }
+  table.wide td, table.wide th { padding: 8px 10px; font-size: 13.5px; }
+
+  .steps-list { counter-reset: step; list-style: none; margin: 18px 0; padding: 0; }
+  .steps-list li {
+    counter-increment: step; position: relative;
+    padding: 10px 0 10px 44px; border-bottom: 1px solid var(--line-soft);
+  }
+  .steps-list li::before {
+    content: counter(step); position: absolute; left: 0; top: 10px;
+    width: 26px; height: 26px; border: 1px solid var(--accent); border-radius: 2px;
+    color: var(--accent); font-family: var(--mono); font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .steps-list b { font-weight: 650; }
+
+  footer {
+    margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--line);
+    font-family: var(--mono); font-size: 12.5px; color: var(--muted); line-height: 1.8;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<div class="eyebrow">Apple Silicon · Linux environments</div>
+<h1>WSL-class Linux on a Mac, assembled from parts Apple already shipped</h1>
+<p class="dek">How AppBox turns Apple's <code>container</code> tool into named, persistent
+Linux machines that boot systemd, share your home directory, and arrive with the
+thirty-odd command line tools a base image forgot — all from an icon by the clock.</p>
+<p class="byline">The app: <b>AppBox</b> — Swift 6 and SwiftUI, one engine (<b>AppBoxKit</b>)
+behind both a menu bar app and a CLI, no Xcode project, MIT licensed. Requires Apple Silicon,
+macOS 15+, and Apple's <b>container</b> 1.1.0.</p>
+
+<div class="prose">
+<h2>The gap on every Mac developer's machine</h2>
+<p>macOS is a Unix, and for years that was close enough. It stopped being close enough the
+moment your production target became a Linux container. The differences are small
+individually and exhausting collectively: BSD <code>sed</code> against GNU <code>sed</code>,
+no <code>/proc</code>, no <code>systemctl</code>, no <code>apt</code>, a linker that
+disagrees, and a library that isn't glibc. Everything <em>almost</em> works, which is worse
+than nothing working, because the failure shows up in CI instead of on your desk.</p>
+<p>Windows answered this in 2016 and then answered it properly: WSL gives you a named Linux
+distribution you switch on, keep, and treat as a computer, with your Windows files visible
+from inside it. The Mac's answers were always adjacent to the question. Docker Desktop gives
+you containers — excellent for shipping images, wrong shape for living in, because a
+container is a process that ends, not a machine that persists. A full VM in UTM or Parallels
+gives you a real Linux with its own everything, including its own filesystem, which is
+exactly the wall you were trying not to build. Homebrew gives you GNU tools on macOS, which
+is a costume rather than a change of species.</p>
+<p>The pieces existed. What didn't exist was a thing you could <em>name</em>, switch on, and
+forget about — one that shared your files rather than copying them.</p>
+
+<h2>What Apple shipped, and what it left out</h2>
+<p>Apple's <a href="https://github.com/apple/container">container</a> tool is a genuinely
+good foundation: an open-source CLI that runs OCI images on Apple Silicon, one lightweight
+VM per container, no Docker Desktop license and no always-on daemon eating a core. Version
+1.1.0 added the piece that mattered — <code>container machine</code>, which runs the image's
+<em>own</em> init system, mounts your Mac home inside at <code>/Users/&lt;you&gt;</code>, and
+creates a Linux account matching your host uid, gid and name.</p>
+<p>That is the WSL shape, and it is Apple's, not ours. But a bare machine is a rough landing.
+Three things stand between <code>container machine create</code> and something you'd actually
+work in:</p>
+<ul>
+  <li><strong>Most images cannot boot as a machine at all.</strong> A machine runs the image's
+  init, and <code>ubuntu:latest</code> has no <code>/sbin/init</code>. The machine gets created
+  and then dies with <em>"no PID data from sync pipe"</em> — a message that tells you nothing
+  about the cause. (The package that provides it on Debian and Ubuntu is
+  <code>systemd-sysv</code>, not <code>systemd</code>. Alpine is the only distro we offer that
+  boots as shipped, on BusyBox init.)</li>
+  <li><strong>The account you get is unfurnished.</strong> No <code>sudo</code>, no bash login
+  shell, no dotfiles of any kind.</li>
+  <li><strong>The image is a base image.</strong> A fresh Ubuntu has no <code>curl</code>, no
+  <code>git</code>, no <code>vim</code>, and — the one that gets everybody — no
+  <code>ping</code>.</li>
+</ul>
+<p>Add the fact that the official <code>archlinux</code> image is amd64-only and simply will
+not run here, that Rocky publishes no <code>latest</code> tag, and that pacman 7's downloader
+sandbox needs <code>--disable-sandbox</code> because it uses Landlock and the container kernel
+doesn't support it — and you have an afternoon of archaeology before your first useful shell.</p>
+
+<div class="callout">
+  <span class="k">Why AppBox exists</span>
+  Apple built the hard part — the virtualization, the init, the home mount, the uid mapping.
+  <strong>AppBox is the missing hundred meters:</strong> a distro picker that only offers
+  images verified to run on arm64, an init system baked into the ones that ship without it,
+  the standard toolset, sudo, a bash login shell, dotfiles, and a persistent list of every
+  box with a switch beside it. Every one of those is a thing you'd otherwise do by hand,
+  once per box, forever.
+</div>
+</div>
+
+<figure class="narrow">
+  <img src="images/menu-bar.png" alt="The AppBox menu bar dropdown listing a running Ubuntu machine named test with its IP, CPU, memory and disk usage, above three stopped containers, each row with a state dot and an on/off switch">
+  <figcaption>Every box, its state, and a switch — without leaving what you were doing.
+  Machines and classic containers in one list; the <code>container</code> badge marks the
+  exception, and the star marks the default machine.</figcaption>
+</figure>
+
+<div class="prose">
+<h2>A box is a machine, not a container</h2>
+<p>The unit AppBox manages is a <strong>box</strong>: a named, persistent Linux install that
+survives stop, start, and reboot. By default a box is one of Apple's container machines, and
+the practical consequences of that are the whole point:</p>
+<p><code>systemctl enable --now nginx</code> works, and it comes back after a restart. Your
+Mac home is <em>mounted</em> inside at the same path, not copied — edit in your usual editor
+on the Mac, build in Linux, and it is the same file, not a synced approximation. Because your
+Linux account is created at your Mac account's uid and gid, a file written inside the box is
+owned by you outside it, with no permission juggling on either side.</p>
+<p>AppBox keeps the older shape too. A <strong>container</strong> is the original box:
+<code>container run --init … sleep infinity</code>, attached with <code>exec</code>. It has no
+init system, but it does have something machines can't offer — a private per-box home and a
+<code>/data</code> directory, both on the host, both surviving <code>destroy</code>. Apple's
+<code>machine create</code> takes no <code>--volume</code>, so if you need either of those,
+the older kind is still the right tool — a deliberate choice, not a leftover.</p>
+</div>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>&nbsp;</th><th>Machine <em>(default)</em></th><th>Container</th></tr></thead>
+  <tbody>
+    <tr><td>Init system</td><td class="y">the image's own — systemd where it has one</td><td class="n">none (<code>sleep infinity</code>)</td></tr>
+    <tr><td>Services</td><td class="y"><code>systemctl</code> works, survives restart</td><td class="n">start daemons by hand</td></tr>
+    <tr><td>Your Mac home</td><td class="y">mounted at <code>/Users/&lt;you&gt;</code></td><td class="n">not mounted</td></tr>
+    <tr><td>Private per-box home</td><td class="n">no — dies with the machine</td><td class="y">yes, kept on the host</td></tr>
+    <tr><td><code>/data</code> volume</td><td class="n">no</td><td class="y">yes, kept on the host</td></tr>
+    <tr><td>Survives <code>destroy</code></td><td class="p">nothing — but your Mac home is untouched</td><td class="y">home and <code>/data</code></td></tr>
+    <tr><td>Needs</td><td class="p"><code>container</code> 1.1.0+</td><td class="y">any <code>container</code></td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="prose">
+<h2>Prior art: Linux calls these system containers</h2>
+<p>Nothing about the box idea is new. Linux has had it since 2008, when LXC first wrapped the
+kernel's namespaces and cgroups into something you could hold, and it has been pleasant to
+live with since 2015, when LXD added a daemon, a REST API and a decent CLI on top. (Incus is
+the Linux Containers project's fork of LXD, made after Canonical took the project in-house in
+2023; the two are still near-identical to use.)</p>
+<p>The distinction this whole article turns on — machine versus container — is the same one
+LXD draws between a <strong>system container</strong> and an <strong>application
+container</strong>. A system container boots the distribution's own init, runs many processes,
+keeps its state, and is something you log into. An application container runs one process and
+exits. Docker won so completely at the second that plenty of people have forgotten the first
+is a category at all.</p>
+<p>A box is a system container. If you've run LXD, you already know what AppBox is, and most
+of the vocabulary maps straight across:</p>
+</div>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>Concept</th><th>LXD / Incus</th><th>AppBox</th></tr></thead>
+  <tbody>
+    <tr><td>Full-OS, persistent instance</td><td class="y">system container</td><td class="y">machine <em>(default)</em></td></tr>
+    <tr><td>Single-process instance</td><td class="y">application container</td><td class="y">container</td></tr>
+    <tr><td>Create</td><td class="n"><code>lxc launch ubuntu:24.04 dev</code></td><td class="n"><code>appbox create-ubuntu dev 24.04</code></td></tr>
+    <tr><td>Interactive shell</td><td class="n"><code>lxc shell dev</code></td><td class="n"><code>appbox shell dev</code></td></tr>
+    <tr><td>One-off command</td><td class="n"><code>lxc exec dev -- cmd</code></td><td class="n"><code>appbox exec dev cmd</code></td></tr>
+    <tr><td>Lifecycle</td><td class="n"><code>lxc start|stop|delete</code></td><td class="n"><code>appbox start|stop|destroy</code></td></tr>
+    <tr><td>Share host files</td><td class="p">disk device, plus an idmap</td><td class="y">your home, mounted automatically</td></tr>
+    <tr><td>Runs on</td><td class="p">Linux</td><td class="p">macOS on Apple Silicon</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="prose">
+<p>The differences fall where you'd expect. LXD carries a decade of operational surface AppBox
+has no answer to: snapshots and rollback, profiles, storage pools on zfs, btrfs, lvm or ceph,
+clustering across hosts, live migration, and the option of running a real VM under the same
+CLI. It is serious infrastructure software. AppBox is a menu bar app.</p>
+<p>Two things run the other way, though. The first is that <strong>LXD doesn't run on
+macOS</strong> — which, for this article, is the entire problem. You can run it inside a Linux
+VM on your Mac, and if you want profiles and snapshots that is the right answer, but
+now you are managing a VM in order to manage containers, and your Mac files sit two boundaries
+away from the thing using them.</p>
+<p>The second is file ownership, and it's the one that surprises people. LXD's unprivileged
+containers map the container's root to a high host uid range, so a directory shared in from
+the host arrives owned by nobody useful — and fixing it means <code>raw.idmap</code> entries,
+or shiftfs, or idmapped mounts, depending on the year and the kernel. AppBox never has that
+conversation: <code>container</code> creates the Linux account at your Mac account's uid and
+gid, so a file written inside is owned by you outside. By construction, not by
+configuration.</p>
+
+<div class="callout">
+  <span class="k">The short version</span>
+  <strong>AppBox is LXD's system container, minus the operations toolkit, plus the one thing
+  LXD can't do — run on a Mac and share your actual home directory without an idmap
+  argument.</strong> If your workstation is Linux, use Incus. If it's a Mac, this is the
+  nearest thing to it that exists natively.
+</div>
+
+<h2>Creating one</h2>
+<p>The New Box window explains every choice in place, because the answers have consequences
+you shouldn't have to discover afterwards. The version field adapts
+per distribution — it tells you Ubuntu's <code>latest</code> means the newest LTS, and that
+Rocky has no <code>latest</code> tag at all. The Mac home setting says, in words, where your
+files will appear inside. <strong>Full Linux install</strong> is on by default.</p>
+</div>
+
+<div class="fig-pair">
+  <figure>
+    <img src="images/new-box.png" alt="The New Box window with fields for name and distribution, a Machine or Container kind picker, a Mac home read/write setting, CPU and memory, and a Full Linux install toggle">
+    <figcaption>Name, distro, version, kind. Each choice explains itself — including exactly
+    where <code>/Users/daver</code> lands inside the box, and what the resolved image will
+    be.</figcaption>
+  </figure>
+  <figure>
+    <img src="images/creating.png" alt="The AppBox dropdown showing a progress row that reads: Creating test… (the first machine of a distro builds an image)">
+    <figcaption>The first machine of a distro builds a cached image, and says why while it
+    does. Every later machine of that distro is created in seconds.</figcaption>
+  </figure>
+</div>
+
+<div class="prose">
+<p>That one-minute first build is doing the work described above. Because most images can't
+boot as a machine, AppBox composes one that can — the upstream image plus an init system plus
+the toolset — and caches it as <code>appbox-machine/&lt;distro&gt;</code>. Each recipe ends
+with <code>RUN test -x /sbin/init</code>, so a mistake fails the build rather than the boot,
+where it would have surfaced as that unhelpful sync-pipe error.</p>
+</div>
+
+<div class="flow">
+  <div class="flow-row">
+    <div class="fnode accent">
+      <div class="t">Distro token</div>
+      <div class="s">ubuntu · debian · alpine<br>fedora · rocky · arch</div>
+    </div>
+    <div class="farrow"><b>&#8594;</b>resolve<br>arm64-verified</div>
+    <div class="fnode pool">
+      <div class="t">Cached image</div>
+      <div class="s">upstream + init system<br>+ standard toolset</div>
+    </div>
+    <div class="farrow"><b>&#8594;</b>create<br>+ wait for boot</div>
+    <div class="fnode ok">
+      <div class="t">Machine running</div>
+      <div class="s">systemd as PID 1<br>account at your uid</div>
+    </div>
+    <div class="farrow"><b>&#8594;</b>polish</div>
+    <div class="fnode ok">
+      <div class="t">Box</div>
+      <div class="s">sudo · bash login shell<br>dotfiles · your home</div>
+    </div>
+  </div>
+  <div class="flow-note">The last step runs after first boot rather than being baked into the
+  image — a second account at the same uid would collide with the one <code>container</code>
+  creates itself. It is idempotent, which is what makes "Install Standard Toolset" safe to
+  re-run on any box.</div>
+</div>
+
+<div class="prose">
+<h2>The tools, which are the actual product</h2>
+<p>A "full Linux install" here means roughly <strong>28 packages</strong> that base images
+don't ship: <code>curl</code>, <code>wget</code>, <code>git</code>, <code>vim</code>,
+<code>nano</code>, <code>sudo</code>, <code>dig</code>, <code>ip</code>, <code>ping</code>,
+<code>htop</code>, <code>tmux</code>, <code>jq</code>, <code>tree</code>, <code>rsync</code>,
+<code>less</code>, <code>man</code>, <code>unzip</code>, <code>ca-certificates</code> and
+friends — installed with the right package manager for the distro, plus sudo, a bash login
+shell and dotfiles for your account.</p>
+<p>It sounds mundane. It is the difference between a box and a chore — and harder to get
+right across six distributions than it looks: <code>dnf</code> aborts an entire
+transaction over one unavailable package, and <code>htop</code> lives in EPEL rather than
+Rocky's default repositories — so a plain install of the toolset on Rocky installed
+<em>nothing at all</em>. AppBox probes for <code>--skip-unavailable</code> (dnf5) and falls
+back to <code>--setopt=strict=0 --skip-broken</code> (dnf4, which Rocky 10 still ships), so a
+package it can't find is skipped rather than fatal.</p>
+
+<h2>Living in it</h2>
+<p>The management window gives per-box detail adapted to what the box actually is. A machine
+shows the image it was built from, its DHCP address, how much disk it really occupies, your
+Mac home with a reveal-in-Finder button, the separate Linux home on the machine's own disk,
+and whether it's the default machine. A container shows its persistent home and
+<code>/data</code> instead. The console below carries the boot log — a real systemd boot, on a
+machine.</p>
+</div>
+
+<figure>
+  <img src="images/manager.png" alt="The AppBox management window showing the test machine running, with distribution, image, IP address, resources, user, disk, Mac home, Linux home, default status, creation time, and a live boot console">
+  <figcaption>The detail that answers the questions you actually ask: what is this, where are
+  my files, how much disk is it really using, and did it boot cleanly. Disk reads
+  <code>533.1 MB used</code> because the volume inside reports ~500G and is sparse — the
+  honest number is the one shown.</figcaption>
+</figure>
+
+<div class="prose">
+<p>Clicking a row — or <strong>Open Shell</strong> — starts the box if it's stopped and drops
+you into a real Terminal window as your own user, not as root. On a machine you land in your
+Mac home, mounted at the same path inside, so the files you were editing thirty seconds ago
+are right there. Your terminal profile, your scrollback, your window management. No embedded
+terminal emulator, no compromises about which one you like.</p>
+</div>
+
+<figure>
+  <img src="images/shell.png" alt="A macOS Terminal window titled daver@test running container machine run, with the shell prompt reading daver@test:/Users/daver, beside the AppBox menu bar dropdown">
+  <figcaption>The prompt says it all: <code>daver@test:/Users/daver</code>. Same user, same
+  path, same files — running on Linux.</figcaption>
+</figure>
+
+<div class="prose">
+<h2>Five minutes from nothing</h2>
+
+<ol class="steps-list">
+  <li><b>Install Apple's <code>container</code></b> — the signed <code>.pkg</code> from
+  <a href="https://github.com/apple/container/releases">its releases page</a>. There is no
+  Homebrew cask. AppBox drives this tool; it is not optional.</li>
+  <li><b>Install AppBox</b> — open the DMG, drag it to Applications. It's signed with a
+  Developer ID certificate and notarized, so it opens normally with nothing to work
+  around.</li>
+  <li><b>Install the CLI</b> — menu bar icon → gear → <b>Install</b>, which symlinks the
+  <code>appbox</code> binary from inside the bundle onto your <code>PATH</code>. Do it after
+  moving the app, since the symlink points at where the app was at install time. The installer
+  lists every <code>appbox</code> on your <code>PATH</code> in resolution order, so a shadowed
+  install is visible rather than mysterious — and anything in the way is renamed to
+  <code>appbox.previous</code>, never deleted.</li>
+  <li><b>Create a box</b> — <code>appbox create-ubuntu dev 26.04</code>, or the New Box
+  window. Name and version may be given in either order.</li>
+  <li><b>Work</b> — <code>appbox shell dev</code>, or click the row. It's already
+  provisioned.</li>
+</ol>
+
+<p>The CLI is the same engine as the app, not a reimplementation of it, so the two faces
+cannot drift:</p>
+
+<pre><code>appbox create-ubuntu web 24.04       <span class="c"># latest = newest LTS</span>
+appbox create dev ubuntu --container <span class="c"># the isolated-home kind</span>
+appbox create ci alpine --home-mount ro --cpus 8 --memory 8G
+
+appbox shell   web                   <span class="c"># auto-starts the box</span>
+appbox exec    web 'systemctl is-active nginx'
+appbox exec --root web 'apt-get install -y postgresql'
+appbox use     web                   <span class="c"># make it the default machine</span>
+appbox list                          <span class="c"># both kinds, * marks the default</span>
+appbox start|stop|restart|ip|info|provision|destroy &lt;name&gt;</code></pre>
+
+<p>Flags come before the box name on <code>exec</code>; everything after the name passes
+through untouched, quoting included. A bare <code>appbox create &lt;name&gt;</code> never
+silently picks a distro for you — it uses <code>$APPBOX_IMAGE</code>, then the distro saved by
+<code>set-default</code>, and otherwise prints a menu and exits. Six distributions are offered
+with verified arm64 images, and any other value is passed through as a raw image reference, so
+<code>appbox create tiny busybox:latest</code> works too.</p>
+
+<h2>How it compares</h2>
+</div>
+
+<div class="tablewrap">
+<table class="wide">
+  <thead><tr><th>Capability</th><th>WSL 2</th><th>LXD / Incus</th><th>Docker Desktop</th><th>Full VM</th><th>AppBox</th></tr></thead>
+  <tbody>
+    <tr><td>Named, persistent Linux you switch on</td><td class="y">yes</td><td class="y">yes</td><td class="n">no — images, not machines</td><td class="y">yes</td><td class="y">yes</td></tr>
+    <tr><td>Real init, services survive restart</td><td class="y">yes</td><td class="y">yes</td><td class="n">no</td><td class="y">yes</td><td class="y">yes — systemd</td></tr>
+    <tr><td>Host files shared, not copied</td><td class="y"><code>/mnt/c</code></td><td class="p">disk devices</td><td class="p">bind mounts</td><td class="p">shared folders, with friction</td><td class="y">home, same path</td></tr>
+    <tr><td>Host uid/gid ownership matches</td><td class="p">metadata opts</td><td class="p">idmap config</td><td class="n">a recurring nuisance</td><td class="n">no</td><td class="y">yes, by construction</td></tr>
+    <tr><td>Usable in seconds after create</td><td class="y">yes</td><td class="y">yes</td><td class="p">image-dependent</td><td class="n">no — full OS install</td><td class="y">yes, after first per-distro build</td></tr>
+    <tr><td>Tools present on first login</td><td class="y">distro defaults</td><td class="y">distro defaults</td><td class="n">no — base images</td><td class="y">yes</td><td class="y">~28 pkgs + sudo, bash, dotfiles</td></tr>
+    <tr><td>Multiple distros side by side</td><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td><td class="p">one VM each</td><td class="y">six, one command each</td></tr>
+    <tr><td>Snapshots, profiles, clustering</td><td class="n">no</td><td class="y">yes</td><td class="n">no</td><td class="p">snapshots only</td><td class="n">no</td></tr>
+    <tr><td>Idle cost</td><td class="y">low</td><td class="y">low — one daemon</td><td class="n">daemon + license</td><td class="n">a whole VM</td><td class="y">low</td></tr>
+    <tr><td>GUI apps, drive-wide mapping, host/guest interop</td><td class="y">yes (WSLg)</td><td class="n">no</td><td class="n">no</td><td class="y">yes</td><td class="n">no</td></tr>
+    <tr><td>Runs on</td><td class="n">Windows</td><td class="n">Linux</td><td class="y">anywhere</td><td class="y">anywhere</td><td class="p">Apple Silicon, macOS 15+</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="prose">
+<div class="callout olive">
+  <span class="k">Honesty clause</span>
+  This is not a WSL clone and it is not an Incus replacement. There's no WSLg forwarding Linux
+  GUI apps onto your desktop, no drive-wide <code>/mnt/c</code> equivalent (your home is
+  mounted; the rest of the disk isn't), no interop layer running Linux binaries from the macOS
+  side, and none of LXD's operational machinery — no snapshots, no profiles, no clustering, no
+  storage pools. What it reproduces is the <em>operating model</em> those two share — a named
+  Linux you switch on, keep, and share your files with — on the one platform that had no
+  native answer for it.
+</div>
+
+<h2>What it costs you to be wrong</h2>
+<p>Two things are worth understanding before you commit, and both come from Apple's design
+rather than ours.</p>
+<p><strong>A machine's disk always goes when the machine does.</strong> There is no keeping
+it. That is less of a loss than it sounds, because the files you care about live in your Mac
+home, which was mounted rather than copied — destroying a machine costs you installed
+packages, not your work. But it does mean a machine is the wrong place to keep anything you
+haven't put under <code>/Users/&lt;you&gt;</code>.</p>
+<p><strong>Every machine sees that same one home, with no isolation between them.</strong>
+<code>rm -rf ~</code> inside a machine reaches your real files. That is the price of the
+shared-files model, and the mitigation is offered at create time for exactly that reason:
+<code>--home-mount ro</code>, or <code>none</code>. If you're going to point something
+untrusted at a box, that's the moment to reach for them.</p>
+<p>A container inverts both trade-offs — its home and <code>/data</code> live on the host and
+survive <code>destroy</code>, so you can destroy one, recreate it on a newer distro release
+with different CPU and memory, and your dotfiles, keys, shell history and checkouts come back
+with it. It just has no systemd.</p>
+<p>The rest of the sharp edges are documented rather than hidden: IP addresses are DHCP and
+change across restarts, so use the box name or <code>appbox ip</code> and never hardcode one.
+Upgrading Apple's <code>container</code> CLI while the old daemon keeps running breaks
+networking with a spectacularly unhelpful error — AppBox detects that specific case and offers
+to restart the service. And <code>id</code> may report an odd group name inside, because your
+box user takes your Mac gid of 20, which Debian, Ubuntu and Alpine all already call
+<code>dialout</code>; ownership is numeric and correct, only the label is strange, and
+renaming a system group would be the worse fix.</p>
+
+<h2>Who this is for</h2>
+<p>If you develop on a Mac and deploy to Linux, the pitch is short: stop testing on an
+approximation. Build against the same libc, the same package manager and the same init system
+your production host runs, using the editor and the files you already have open.</p>
+<p>If you're a sysadmin or a homelabber, a box is a scratch machine that costs one command and
+half a gigabyte. Try the playbook, break the config, <code>destroy</code>, start again —
+across Ubuntu, Debian, Alpine, Fedora, Rocky and Arch, without a hypervisor UI or a single ISO
+download. If <code>lxc launch</code> is already muscle memory on your Linux boxes, this is
+that reflex, on the laptop.</p>
+<p>If you're learning Linux, the case is strongest of all. The reason WSL mattered wasn't
+technical; it was that it removed the ceremony between wanting a Linux and having one. That's
+what an icon by the clock with a switch beside each box is for.</p>
+
+<h2>Closing thought</h2>
+<p>None of this required writing a hypervisor or forking a container runtime. Apple built the
+hard part and shipped it for free. What was missing was the last hundred meters — knowing
+which images actually boot, which packages actually exist, what an unhelpful error message
+actually means, and doing all of it once so nobody has to do it again. That's the whole
+project: not a new virtualization stack, just the difference between a platform capability and
+something you'd use on a Tuesday.</p>
+</div>
+
+<footer>
+  AppBox: <a href="https://github.com/brainchillz/Appbox-Native">github.com/brainchillz/Appbox-Native</a> ·
+  built on Apple's <a href="https://github.com/apple/container">container</a> · MIT.<br>
+  Screenshots are of AppBox 0.3.0 on macOS 26, Apple Silicon, with <code>container</code> 1.1.0.<br>
+  Self-contained page — no external requests; light/dark follows your OS.
+</footer>
+
+</div>
+</body>
+</html>
