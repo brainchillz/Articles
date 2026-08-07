@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Three bugs deep — internal speakers on the ASUS ProArt PX13 under Linux</title>
+<style>
+  /* Same token system as the rest of the family. */
+  :root {
+    --bg: #efece6; --surface: #f9f7f3; --well: #efece6;
+    --line: #d5cfc4; --line-soft: #e3ded5;
+    --text: #2b2721; --muted: #767061;
+    --accent: #a84a0c; --ok: #5f7d3d; --warn: #96701d; --crit: #a83440;
+    --pool: #33708f;
+    --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1b1c1e; --surface: #212225; --well: #161719;
+      --line: #3a3833; --line-soft: #2f2e2b;
+      --text: #d8d4cc; --muted: #8f8b82;
+      --accent: #c1550f; --ok: #82a35c; --warn: #d09c3c; --crit: #cf545e;
+      --pool: #5f93ad;
+    }
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 16px/1.65 var(--sans);
+    padding: 48px 20px 90px;
+  }
+  .page { max-width: 880px; margin: 0 auto; }
+  .prose { max-width: 72ch; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 12px;
+  }
+  h1 { font-size: 34px; line-height: 1.2; letter-spacing: -0.01em; font-weight: 750;
+       text-wrap: balance; margin-bottom: 14px; }
+  .dek { font-size: 18px; color: var(--muted); max-width: 62ch; margin-bottom: 10px; }
+  .byline { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-bottom: 44px; line-height: 1.7; }
+  .byline b { color: var(--text); font-weight: 600; }
+
+  h2 {
+    font-size: 22px; font-weight: 700; margin: 54px 0 14px;
+    padding-top: 22px; border-top: 1px solid var(--line);
+  }
+  h3 { font-size: 16px; font-weight: 700; margin: 26px 0 8px; }
+  p { margin: 0 0 14px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: var(--mono); font-size: 0.86em;
+    background: var(--well); border: 1px solid var(--line-soft);
+    border-radius: 2px; padding: 1px 5px;
+  }
+  pre {
+    font-family: var(--mono); font-size: 13px; line-height: 1.7;
+    background: var(--well); border: 1px solid var(--line-soft);
+    border-radius: 2px; padding: 12px 14px; margin: 0 0 14px;
+    overflow-x: auto;
+  }
+  pre code { background: none; border: none; padding: 0; font-size: inherit; }
+  pre .c { color: var(--muted); }
+  pre .wn { color: var(--crit); }
+  pre .ok { color: var(--ok); }
+  ul, ol { margin: 0 0 14px 1.3em; max-width: 72ch; }
+  li { margin-bottom: 6px; }
+  strong { font-weight: 650; }
+
+  .callout {
+    border: 1px solid var(--line-soft); border-left: 2px solid var(--accent);
+    border-radius: 2px; padding: 12px 16px; margin: 18px 0;
+    font-size: 14.5px; max-width: 72ch;
+  }
+  .callout.olive { border-left-color: var(--ok); }
+  .callout.warn { border-left-color: var(--warn); }
+  .callout .k { font-family: var(--mono); font-size: 11px; text-transform: uppercase;
+                letter-spacing: 0.08em; color: var(--accent); display: block; margin-bottom: 4px; }
+  .callout.olive .k { color: var(--ok); }
+  .callout.warn .k { color: var(--warn); }
+  .callout ul { margin: 6px 0 0 1.2em; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; margin: 18px 0 8px;
+          background: var(--surface); border: 1px solid var(--line); }
+  th {
+    text-align: left; padding: 8px 12px; background: var(--well);
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted);
+    border-bottom: 1px solid var(--line);
+  }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .tablewrap { overflow-x: auto; }
+  .tablewrap table { min-width: 720px; }
+
+  footer {
+    margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--line);
+    font-family: var(--mono); font-size: 12.5px; color: var(--muted); line-height: 1.8;
+  }
+  footer b { color: var(--text); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<div class="eyebrow">Linux · Audio · Field notes</div>
+<h1>Three bugs deep: getting the internal speakers working on the ASUS ProArt PX13</h1>
+<p class="dek">Out of the box this laptop plays audio over HDMI but its internal speakers are
+completely silent. Real, persistent sound turned out to require fixing three independent bugs
+stacked on top of each other — a missing firmware blob, a missing (and broken) ALSA UCM profile,
+and a SoundWire controller that doesn't survive boot or resume.</p>
+<p class="byline">Hardware: <b>ASUS ProArt PX13 HN7306EAC</b> (AMD Ryzen AI Max, "Strix Halo") ·
+OS: Ubuntu 26.04, kernel 7.0.0-22-generic · Audio stack: SOF + PipeWire/WirePlumber, AMD ACP
+SoundWire (<code>snd_pci_ps</code>), rt721-sdca jack codec, 2× TI TAS2783 SoundWire smart amps ·
+June 2026 · ~12 min read.</p>
+
+<div class="prose">
+<p>Out of the box the ProArt PX13 plays audio fine over HDMI but the <strong>internal speakers are
+completely silent</strong> — PipeWire only ever shows a generic "Dummy Output" sink. Getting real,
+persistent sound out of this laptop turned out to require fixing <em>three independent bugs</em>
+stacked on top of each other: a missing calibration firmware blob, a missing ALSA UCM profile
+(plus a broken UCM control reference), and a SoundWire/ACP controller that doesn't survive boot or
+suspend/resume cleanly.</p>
+<p>This post walks through the actual root cause of each layer and the fix that was applied for
+each one. All of the code, configs, systemd units and calibration firmware are published at
+<a href="https://github.com/brainchillz/asus-proart-px13-linux-speaker-fix">github.com/brainchillz/asus-proart-px13-linux-speaker-fix</a>.</p>
+
+<h2>The starting symptom</h2>
+<p><code>aplay -l</code> and <code>wpctl status</code> showed two cards:</p>
+</div>
+
+<pre><code>card 0: HDMI (Generic HD-Audio)        -&gt; works fine
+card 1: amd-soundwire (rt721-sdca codec + 2x TAS2783 smart amp) -&gt; speakers, no sound</code></pre>
+
+<div class="prose">
+<p>PipeWire's default sink was a synthetic <strong>"Dummy Output"</strong> — the telltale sign that
+PipeWire's ALSA card profile (ACP) couldn't find any usable playback device on card 1 at all.</p>
+
+<h2>Bug #1: Missing TAS2783 calibration firmware</h2>
+<h3>Root cause</h3>
+<p>The internal speakers are driven by two TI <strong>TAS2783</strong> SoundWire "smart amp" chips.
+Smart amps like this don't just amplify — they run a DSP model of the speaker (impedance, thermal
+limits, excursion protection) that has to be <em>calibrated per laptop chassis</em>. The kernel's
+<code>slave-tas2783</code> SoundWire driver loads this calibration data as a firmware blob, and it
+derives the filename from the PCI subsystem ID, the SoundWire link number, and the slave's bus
+address:</p>
+</div>
+
+<pre><code>&lt;subsystem-id&gt;-&lt;sdw-link&gt;-&lt;sdw-addr&gt;.bin
+
+<span class="c"># For this laptop (ASUS subsystem ID 0x1714, SoundWire link 1,</span>
+<span class="c"># slave addresses 0x8 and 0xB):</span>
+1714-1-8.bin
+1714-1-B.bin</code></pre>
+
+<div class="prose">
+<p><code>linux-firmware</code> (as of mid-2026) only ships TAS2783 calibration blobs for a handful of
+HP/Dell subsystem IDs (<code>8E86</code>, <code>8E87</code>, <code>8EF5</code>, <code>8EF6</code>,
+etc.). There is <strong>no ASUS <code>1714</code> blob upstream at all</strong>. The result, visible
+in <code>journalctl -k -b 0 | grep -i tas2783</code>:</p>
+</div>
+
+<pre><code><span class="wn">slave-tas2783 sdw:0:1:0102:0000:01:8: Direct firmware load for 1714-1-8.bin failed with error -2</span>
+<span class="wn">slave-tas2783 sdw:0:1:0102:0000:01:8: Failed to read fw binary 1714-1-8.bin</span>
+<span class="wn">slave-tas2783 sdw:0:1:0102:0000:01:8: error playback without fw download</span>
+<span class="wn">slave-tas2783 sdw:0:1:0102:0000:01:8: ASoC error (-22): at snd_soc_dai_hw_params() on tas2783-codec</span>
+ SDW1-PIN1-PLAYBACK-SmartAmp: ASoC error (-22): at __soc_pcm_hw_params() on SDW1-PIN1-PLAYBACK-SmartAmp</code></pre>
+
+<div class="prose">
+<p>Without the calibration blob, the amp's DSP never finishes initializing, so
+<code>hw_params()</code> on the SmartAmp playback DAI fails outright (<code>-22 EINVAL</code>) and
+the amp never produces audio. This is entirely independent of ALSA mixer levels, mute state, or
+PipeWire configuration — the amp simply refuses to play anything.</p>
+
+<h3>The fix</h3>
+<p>The calibration blobs <em>do exist</em>, just not in <code>linux-firmware</code> — they ship
+inside ASUS's official Windows "TI SmartAMP" driver package for this laptop model. The package is an
+<strong>InstallAware self-extracting EXE</strong> (not Inno Setup, so <code>innoextract</code>
+doesn't work on it). The blobs were recovered by running the installer under <code>wine64</code> and
+snapshotting its self-extraction temp directory:</p>
+</div>
+
+<pre><code>Firmwares/1714-1-0x8.bin  -&gt;  1714-1-8.bin
+Firmwares/1714-1-0xB.bin  -&gt;  1714-1-B.bin</code></pre>
+
+<div class="prose">
+<p>The fix script installs each blob to <strong>both</strong> of the paths the kernel driver looks
+in (the generic firmware search path and the TAS2783-specific subdirectory):</p>
+</div>
+
+<pre><code>/lib/firmware/1714-1-8.bin
+/lib/firmware/1714-1-B.bin
+/lib/firmware/ti/audio/tas2783/1714-1-8.bin
+/lib/firmware/ti/audio/tas2783/1714-1-B.bin</code></pre>
+
+<div class="prose">
+<p>From <code>fix-px13-audio.sh</code>:</p>
+</div>
+
+<pre><code>echo "==&gt; Installing TAS2783 calibration firmware..."
+sudo install -m 644 "$SCRIPT_DIR/firmware/1714-1-8.bin" /lib/firmware/1714-1-8.bin
+sudo install -m 644 "$SCRIPT_DIR/firmware/1714-1-B.bin" /lib/firmware/1714-1-B.bin
+sudo install -d -m 755 /lib/firmware/ti/audio/tas2783
+sudo install -m 644 "$SCRIPT_DIR/firmware/1714-1-8.bin" /lib/firmware/ti/audio/tas2783/1714-1-8.bin
+sudo install -m 644 "$SCRIPT_DIR/firmware/1714-1-B.bin" /lib/firmware/ti/audio/tas2783/1714-1-B.bin</code></pre>
+
+<div class="prose">
+<div class="callout">
+  <span class="k">Note on provenance / licensing</span>
+  These blobs are TI/ASUS proprietary calibration data extracted from ASUS's own Windows driver
+  package for this exact model. The fix repo is intentionally private about the binaries and they
+  are not redistributed publicly — only the scripts and configs that consume them.
+</div>
+<p>After installing the firmware and re-binding the <code>slave-tas2783</code> driver
+(<code>echo &lt;dev&gt; &gt; /sys/bus/soundwire/drivers/slave-tas2783/{unbind,bind}</code>), the
+"Direct firmware load … failed" / "error playback without fw download" messages disappeared.
+<strong>Bug #1 fixed</strong> — but the speakers still produced no sound, because of bug #2.</p>
+
+<h2>Bug #2: No ALSA UCM "Speaker" device, and a broken control reference</h2>
+<p>Even with the firmware loading cleanly and raw ALSA playback to <code>hw:1,2</code> (the TAS2783
+SmartAmp PCM) working, PipeWire still only exposed "Dummy Output". This turned out to be <em>two</em>
+separate UCM (Use Case Manager) bugs.</p>
+
+<h3>2a. Root cause: no upstream UCM profile for tas2783</h3>
+<p>PipeWire's ALSA Card Profile (ACP) module decides what sinks/sources to expose for a card by
+reading its <strong>UCM2</strong> configuration (<code>/usr/share/alsa/ucm2/...</code>). For SOF
+SoundWire cards, the generic profile at <code>conf.d/amd-soundwire/amd-soundwire.conf</code> /
+<code>sof-soundwire/HiFi.conf</code> derives which devices exist by parsing the kernel's
+<code>alsa.components</code> string for this card, which for this machine is:</p>
+</div>
+
+<pre><code> cfg-amp:2 hs:rt721</code></pre>
+
+<div class="prose">
+<p><code>HiFi.conf</code> only adds a <code>"Speaker"</code> <code>SectionDevice</code> if it finds a
+<code>spk:&lt;codec&gt;</code> token in that string via its <code>SpeakerCodec</code>
+<code>DefineRegex</code>. This machine's components string has <code>cfg-amp:2</code> (two amps) but
+<strong>no <code>spk:</code> token</strong> — and even if it did, <strong>there is no
+<code>tas2783.conf</code> codec profile anywhere in upstream <code>alsa-ucm-conf</code></strong>, for
+any machine. So <code>SpeakerCodec1</code> resolves to empty, no Speaker device is ever defined, and
+PipeWire's ACP only ever sees the rt721 codec's "Headphones" and "Headset Microphone" devices —
+never the internal speaker amp.</p>
+
+<h3>2a. Fix: a local tas2783 UCM profile + a card-specific override</h3>
+<p>Two new UCM files were added (neither is part of any package, so a future
+<code>alsa-ucm-conf</code> upgrade that overwrites <code>/usr/share/alsa/ucm2</code> could remove
+them). First, <code>/usr/share/alsa/ucm2/sof-soundwire/tas2783.conf</code> — a minimal Speaker
+device pointing at PCM device 2 (the SmartAmp playback PCM, confirmed working via
+<code>aplay -D hw:1,2</code>):</p>
+</div>
+
+<pre><code><span class="c"># Speaker device for the TI TAS2783 SoundWire smart amp, used on</span>
+<span class="c"># (at least) the ASUS ProArt PX13 (HN7306, Strix Halo). Upstream</span>
+<span class="c"># alsa-ucm-conf has no codec profile for tas2783 yet, so this is a</span>
+<span class="c"># minimal local addition. PCM device 2 is the SmartAmp playback</span>
+<span class="c"># device exposed by the snd_acp_sdw_legacy_mach machine driver.</span>
+
+SectionDevice."Speaker" {
+	Comment "Speaker"
+
+	Value {
+		PlaybackPriority 100
+		PlaybackPCM "hw:${CardId},2"
+		PlaybackChannels 2
+	}
+}</code></pre>
+
+<div class="prose">
+<p>Second, a card-long-name-specific override at
+<code>/usr/share/alsa/ucm2/conf.d/amd-soundwire/ASUSTeKCOMPUTERINC.-ProArtPX13HN7306EAC-1.0-HN7306EAC.conf</code>.
+This file takes priority over the generic <code>amd-soundwire.conf</code> for this exact card
+long-name. It's a full copy of the generic file with one line appended <em>after</em> all the
+existing multi-codec <code>If</code> blocks, so it doesn't disturb the working rt721 headset/mic
+logic, but still forces the Speaker device in:</p>
+</div>
+
+<pre><code><span class="c"># --- Local addition for this machine ---</span>
+<span class="c"># alsa.components for this card ("cfg-amp:2 hs:rt721") does not include</span>
+<span class="c"># a " spk:&lt;codec&gt;" token, so SpeakerCodec1 above resolves to "" and the</span>
+<span class="c"># generic sof-soundwire HiFi profile never adds a "Speaker" device. This</span>
+<span class="c"># machine has a TAS2783 SoundWire smart amp on PCM device 2 (confirmed</span>
+<span class="c"># via `aplay -D hw:1,2`). Force-select our local tas2783.conf, which adds</span>
+<span class="c"># a minimal "Speaker" SectionDevice. This override is applied after the</span>
+<span class="c"># multi-codec If blocks above so it doesn't disturb the rt721 headset</span>
+<span class="c"># handling.</span>
+Define.SpeakerCodec1 "tas2783"</code></pre>
+
+<div class="prose">
+<p>After installing these and restarting PipeWire/WirePlumber, a new sink <strong>"Audio Coprocessor
+Speaker"</strong> appeared… but <code>speaker-test</code> against it produced <strong>no audible
+sound</strong>, exit code 0, no errors. That led to bug 2b.</p>
+
+<h3>2b. Root cause: <code>disdevall</code> chokes on a "Headphone Switch" control that doesn't exist</h3>
+<p>Investigation with <code>strace</code> on <code>alsaucm -c amd-soundwire set _verb HiFi</code>
+showed it failing outright:</p>
+</div>
+
+<pre><code><span class="wn">ALSA lib main.c:843:(execute_sequence) [error.ucm] unable to execute cset 'name='Headphone Switch' off'</span>
+<span class="wn">ALSA lib main.c:2863:(set_verb_user) [error.ucm] failed to initialize new use case: HiFi</span>
+<span class="wn">alsaucm: error failed to set _verb=HiFi: No such file or directory</span></code></pre>
+
+<div class="prose">
+<p>The chain of causes here is subtle:</p>
+<ul>
+<li><code>HiFi.conf</code>'s <code>If.multicodec</code> block includes
+<code>sof-soundwire/rt721.conf</code> because, <em>at the point its <code>DefineRegex</code> is
+evaluated</em>, <code>${var:HeadsetCodec1}</code> is <code>"rt721"</code> — even though
+<code>If.multi_headset</code> later resets <code>HeadsetCodec1</code> to <code>""</code>. The include
+decision is made before that reset takes effect.</li>
+<li><code>rt721.conf</code> has an <em>unconditional</em> <code>SectionDevice."Headphones"</code>
+whose <code>Enable/DisableSequence</code> run <code>cset "name='Headphone Switch' ..."</code>.</li>
+<li><code>HiFi.conf</code>'s <code>SectionVerb</code> <code>EnableSequence</code> runs
+<code>disdevall ""</code> on every <code>_verb HiFi</code> activation — i.e. it tries to run the
+<code>DisableSequence</code> of <em>every</em> defined device, including Headphones.</li>
+<li>But <strong>this particular rt721-sdca codec/driver combination doesn't expose a control
+literally named "Headphone Switch"</strong>. <code>amixer -c1 controls</code> shows only 19 controls
+total — things like <code>rt721 FU05/FU06 Playback Volume</code> and the tas2783 Amp/Speaker Volume
+controls, but no Headphone mute switch of any kind.</li>
+</ul>
+<p>So <code>disdevall</code> tries to run a <code>cset</code> against a non-existent control, that
+single <code>cset</code> failure aborts the entire <code>set _verb HiFi</code> call, and
+PipeWire/ACP — unable to activate the HiFi UCM verb at all — silently falls back to its generic,
+built-in <strong>"stereo-fallback"</strong> profile. That profile plays to <code>hw:1</code> (the raw
+card default, i.e. the rt721 codec path), not <code>hw:1,2</code> (the TAS2783 SmartAmp). Hence:
+<code>speaker-test</code> runs cleanly and reports success, but the audio goes to a PCM the smart amp
+never sees — <strong>silence</strong>.</p>
+
+<div class="callout warn">
+  <span class="k">Two approaches that did NOT work</span>
+  Left here because they're instructive about how UCM resolves includes:
+  <ul>
+  <li>Adding a <code>SectionDevice."Headphones"</code> override directly in the card-specific
+  <code>conf.d</code> file → error: <code>"unknown master file field SectionDevice"</code> —
+  <code>SectionDevice</code> is only valid inside a UseCase file, not a master <code>conf.d</code>
+  file.</li>
+  <li>Defining <code>Define.MultiCodec1 "rt721-px13"</code> to redirect <code>HiFi.conf</code>'s
+  multicodec include to a forked <code>rt721-px13.conf</code> → had no effect.
+  <code>${var:MultiCodec1}</code> is resolved once at <code>DefineRegex</code>-evaluation time and
+  isn't retroactively changed by a later <code>Define.</code> statement; <code>strace</code>
+  confirmed the original <code>rt721.conf</code> was still the file opened.</li>
+  </ul>
+</div>
+
+<h3>2b. Fix: patch <code>rt721.conf</code> directly</h3>
+<p>The fix that actually worked was to directly patch
+<code>/usr/share/alsa/ucm2/sof-soundwire/rt721.conf</code> and empty out
+<code>SectionDevice."Headphones"</code>'s <code>Enable</code>/<code>DisableSequence</code> blocks
+(leaving its <code>Value</code> — routing, jack control, priority — untouched):</p>
+</div>
+
+<pre><code>SectionDevice."Headphones" {
+	Comment	"Headphones"
+
+	<span class="c"># --- Local change for ASUS ProArt PX13 (HN7306) ---</span>
+	<span class="c"># This rt721-sdca codec/driver does not expose a "Headphone Switch"</span>
+	<span class="c"># control (only "rt721 FU05/FU06 Playback Volume", no mute switches -</span>
+	<span class="c"># see `amixer -c1 controls`). HiFi.conf's SectionVerb EnableSequence</span>
+	<span class="c"># runs "disdevall" (disable all devices) on verb activation, so the</span>
+	<span class="c"># missing control made `alsaucm set _verb HiFi` fail entirely, which</span>
+	<span class="c"># made PipeWire/ACP fall back to "stereo-fallback" instead of using</span>
+	<span class="c"># the local "Speaker" device (see tas2783.conf). Emptied below;</span>
+	<span class="c"># Value/routing unchanged. If a future alsa-ucm-conf update overwrites</span>
+	<span class="c"># this file and speakers go silent again, re-apply this change.</span>
+	EnableSequence [
+	]
+
+	DisableSequence [
+	]
+
+	Value {
+	      PlaybackPriority 200
+	      PlaybackPCM "hw:${CardId}"
+	      JackControl "Headphone Jack"
+	}
+}</code></pre>
+
+<div class="prose">
+<p>With this patch, <code>alsaucm -c amd-soundwire set _verb HiFi</code> exits <code>0</code>. After
+restarting PipeWire/WirePlumber, <code>wpctl status</code> showed all three expected devices for the
+first time:</p>
+</div>
+
+<pre><code>Sinks:
+  "Audio Coprocessor Speaker"     (id 58)
+  "Audio Coprocessor Headphones"  (id 59, default - higher PlaybackPriority)
+Sources:
+  "Audio Coprocessor Headset Microphone" (id 60)</code></pre>
+
+<div class="prose">
+<p><code>speaker-test -D pipewire -c 2 -t sine -f 440 -l 1</code> against the Speaker sink was
+<strong>audibly confirmed working</strong>. Bugs #1 and #2 fixed — but only for this boot.</p>
+
+<h2>Bug #3: The ACP/SoundWire controller doesn't survive boot or resume</h2>
+<p>Everything above gets the speakers working <em>for the boot they're applied on</em>. But two
+persistence problems remained:</p>
+<ol>
+<li>On <strong>cold boot</strong>, the TAS2783 firmware download for SoundWire slave <code>01:b</code>
+intermittently fails with an SDW bus timeout (<code>FW download failed: -110</code>), even though the
+firmware <em>file</em> is present and correct.</li>
+<li>On <strong>s2idle suspend/resume</strong>, the <em>entire</em> <code>amd-soundwire</code> ALSA
+card (card 1) disappears — not just the amps — and never comes back on its own.</li>
+</ol>
+
+<h3>3a. Cold-boot <code>-110</code> firmware download timeout</h3>
+<p>With the firmware files in place, a cold boot's <code>journalctl -k -b 0</code> sometimes showed
+(for slave <code>01:b</code> only):</p>
+</div>
+
+<pre><code><span class="wn">soundwire sdw-master-0-1: trf on Slave 1 failed:-110 write addr 8088 count 32632</span>
+<span class="wn">slave-tas2783 sdw:0:1:0102:0000:01:b: FW download failed: -110</span>
+<span class="wn">slave-tas2783 sdw:0:1:0102:0000:01:b: fw with no files</span>
+<span class="wn">slave-tas2783 sdw:0:1:0102:0000:01:b: error playback without fw download</span>
+<span class="wn">slave-tas2783 sdw:0:1:0102:0000:01:b: ASoC error (-22): at snd_soc_dai_hw_params() on tas2783-codec</span></code></pre>
+
+<div class="prose">
+<p><code>-110</code> is <code>ETIMEDOUT</code> — a SoundWire bus write (the firmware download itself)
+timed out for slave <code>01:b</code> during early boot. This is a timing/race issue in the SDW bus
+initialization, distinct from the missing-file problem in Bug #1 (the file is found and read; the
+<em>transfer</em> to the device times out). Re-running the same unbind/bind cycle from Bug #1 after
+boot reliably clears it.</p>
+
+<h3>3b. Resume root cause: the whole ACP/SoundWire controller dies on s2idle resume</h3>
+<p>This was the hardest of the three. After a suspend/resume cycle, audio reverted to "Dummy Output"
+with <strong>zero</strong> tas2783/SDW kernel messages on resume at all.
+<code>/proc/asound/cards</code> showed only the HDMI card — <strong>card 1 (amd-soundwire) was gone
+entirely</strong>. An earlier attempt at a fix used a <code>systemd-sleep</code> "post" hook that
+tried to unbind/rebind the individual <code>slave-tas2783</code> SoundWire devices (the same trick
+from Bug #1/3a). That approach <strong>hung for ~90 seconds</strong> on every resume: unbinding a
+SoundWire <em>slave</em> blocks indefinitely when the parent bus controller itself is dead, which is
+exactly the post-resume state.</p>
+
+<h3>3b. Fix attempt 1: reset at the PCI level (right idea, wrong hook)</h3>
+<p>If the whole controller is dead, the fix is to reset the whole controller: unbind/rebind the
+<strong>parent AMD ACP PCI device</strong>, <code>0000:c4:00.5</code> (driver
+<code>snd_pci_ps</code>), rather than poking individual SoundWire slaves. This tears down and
+re-probes both SoundWire managers, both TAS2783 amps (re-downloading their calibration firmware
+fresh), and the rt721 codec — recreating card 1 from scratch, like a cold boot. Verified live against
+a genuinely broken post-resume state, this worked: card 1 reappeared and "Audio Coprocessor Speaker"
+came back as the default sink.</p>
+<p>However, when wired up as the same kind of <code>systemd-sleep</code> "post" hook, it
+<strong>still hung</strong> — this time the <em>PCI</em> unbind blocked for ~90s before being killed,
+leaving the ACP device unbound and the card gone entirely. Same failure mode, one level up:
+<strong>any unbind/bind of this hardware done from inside the frozen <code>systemd-sleep</code>
+"post" hook blocks</strong>, because it runs while <code>user.slice</code> is frozen and the bus/PM
+state is still in its broken just-resumed condition.</p>
+
+<h3>3b. Fix attempt 2 (final): a post-resume systemd <em>service</em>, not a sleep hook</h3>
+<p>The working fix moves the PCI reset out of the <code>systemd-sleep</code> hook entirely and into a
+normal oneshot <strong>service</strong> ordered <em>after</em> the sleep targets complete — i.e. it
+runs once the system has fully resumed and <code>user.slice</code> has thawed, in
+<code>system.slice</code>, which is never frozen:</p>
+</div>
+
+<pre><code>[Unit]
+Description=PX13 audio fix after resume (reset AMD ACP/SoundWire, refresh PipeWire)
+<span class="c"># Run AFTER the system has fully resumed AND thawed user.slice. The reset</span>
+<span class="c"># (PCI unbind/bind of the ACP) HANGS if attempted from inside the</span>
+<span class="c"># systemd-sleep "post" hook (it runs while the device PM/bus is still in the</span>
+<span class="c"># broken just-resumed state and user.slice is frozen - the unbind blocks for</span>
+<span class="c"># ~90s and gets killed, leaving the card gone). Ordering after the sleep</span>
+<span class="c"># targets means this runs once the resume is complete and the session is</span>
+<span class="c"># thawed, where the reset works reliably.</span>
+After=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
+
+[Service]
+Type=oneshot
+<span class="c"># Small settle delay so the just-resumed ACP device PM has finished before</span>
+<span class="c"># we unbind/bind it.</span>
+ExecStartPre=/bin/sleep 3
+ExecStart=/usr/local/sbin/px13-audio-fix.sh
+
+[Install]
+WantedBy=suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target</code></pre>
+
+<div class="prose">
+<p>The actual reset script, <code>px13-audio-fix.sh</code>, does the PCI unbind/bind (wrapped in
+<code>timeout 30</code> as defensive belt-and-braces), waits for the <code>amd-soundwire</code> card
+to reappear in <code>/proc/asound/cards</code>, then refreshes PipeWire/WirePlumber:</p>
+</div>
+
+<pre><code>PCI_DEV="0000:c4:00.5"
+PCI_DRV="/sys/bus/pci/drivers/snd_pci_ps"
+CARD_MATCH="amd-soundwire"
+
+pci_write() { timeout 30 sh -c "echo '$1' &gt; '$2'" 2&gt;/dev/null; }
+
+if [ ! -d "$PCI_DRV" ]; then
+  log "snd_pci_ps driver not present, cannot reset - skipping"
+elif [ ! -e "$PCI_DRV/$PCI_DEV" ]; then
+  log "PCI $PCI_DEV not currently bound to snd_pci_ps - attempting bind only"
+  pci_write "$PCI_DEV" "$PCI_DRV/bind" || log "bind failed/timed out"
+else
+  log "unbinding PCI $PCI_DEV"
+  pci_write "$PCI_DEV" "$PCI_DRV/unbind" || log "unbind failed/timed out"
+  sleep 2
+  log "binding PCI $PCI_DEV"
+  pci_write "$PCI_DEV" "$PCI_DRV/bind" || log "bind failed/timed out"
+fi
+
+<span class="c"># --- Wait for the amd-soundwire card to reappear -----------------------------</span>
+for _ in $(seq 1 40); do
+  if grep -q "$CARD_MATCH" /proc/asound/cards 2&gt;/dev/null; then
+    log "amd-soundwire card is present"
+    break
+  fi
+  sleep 0.25
+done</code></pre>
+
+<div class="prose">
+<p>The same script also runs at boot (via <code>px13-audio-rebind.service</code>,
+<code>After=sound.target</code>), which covers Bug 3a's intermittent <code>-110</code> timeout for
+slave <code>01:b</code>, since the PCI-level reset re-downloads firmware to both amps from scratch.</p>
+
+<h3>Frozen-session safety</h3>
+<p>One more subtlety: <code>px13-audio-fix.sh</code> is shared between the boot service (runs in a
+normal, unfrozen session) and the resume service (runs after thaw, also normally unfrozen — but
+defensively checked anyway). Before calling <code>systemctl --user restart</code> for each logged-in
+user, it checks that user's cgroup freezer state and skips the PipeWire restart if the session is
+still frozen, since a <code>systemctl --user</code> call against a frozen session would itself
+hang:</p>
+</div>
+
+<pre><code>for uid in $(loginctl list-users --no-legend | awk '{print $1}'); do
+  runtime_dir="/run/user/$uid"
+  user_name="$(id -nu "$uid" 2&gt;/dev/null)" || continue
+  [ -d "$runtime_dir" ] || continue
+
+  events="/sys/fs/cgroup/user.slice/user-${uid}.slice/cgroup.events"
+  if [ -r "$events" ] &amp;&amp; grep -q "^frozen 1$" "$events" 2&gt;/dev/null; then
+    log "uid $uid ($user_name) session frozen - skipping pipewire restart" \
+        "(udev will re-enumerate on thaw)"
+    continue
+  fi
+
+  log "restarting pipewire for uid $uid ($user_name)"
+  sudo -u "$user_name" XDG_RUNTIME_DIR="$runtime_dir" \
+    systemctl --user restart wireplumber pipewire pipewire-pulse 2&gt;/dev/null \
+    || log "pipewire restart for uid $uid failed"
+done</code></pre>
+
+<div class="prose">
+<h2>Putting it all together</h2>
+<p>The final, verified-working setup installs:</p>
+</div>
+
+<div class="tablewrap">
+<table>
+<thead>
+<tr><th>Component</th><th>Path</th><th>Purpose</th></tr>
+</thead>
+<tbody>
+<tr><td>Calibration firmware</td><td><code>/lib/firmware/1714-1-{8,B}.bin</code> (+ <code>ti/audio/tas2783/</code>)</td><td>Lets the TAS2783 amps initialize (Bug #1)</td></tr>
+<tr><td>UCM Speaker profile</td><td><code>/usr/share/alsa/ucm2/sof-soundwire/tas2783.conf</code> + card override</td><td>Exposes the internal speaker to PipeWire (Bug #2a)</td></tr>
+<tr><td><code>rt721.conf</code> patch</td><td><code>/usr/share/alsa/ucm2/sof-soundwire/rt721.conf</code></td><td>Removes the unsupported <code>Headphone Switch</code> cset so the <code>HiFi</code> verb activates (Bug #2b)</td></tr>
+<tr><td><code>px13-audio-fix.sh</code></td><td><code>/usr/local/sbin/</code></td><td>Resets the ACP controller (PCI unbind/bind of <code>0000:c4:00.5</code>) and refreshes PipeWire (Bug #3)</td></tr>
+<tr><td><code>px13-audio-rebind.service</code></td><td><code>/etc/systemd/system/</code></td><td>Runs the reset at boot, <code>After=sound.target</code> (Bug #3a)</td></tr>
+<tr><td><code>px13-audio-resume.service</code></td><td><code>/etc/systemd/system/</code></td><td>Runs the reset after resume, ordered after the sleep targets (Bug #3b)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="prose">
+<p>After running the install script, the verification commands are:</p>
+</div>
+
+<pre><code>journalctl -k -b 0 | grep -i tas2783      <span class="c"># no firmware load errors</span>
+wpctl status                              <span class="c"># shows "Audio Coprocessor Speaker"</span>
+speaker-test -D pipewire -c 2 -t sine -f 440</code></pre>
+
+<div class="prose">
+<p>A reboot and a suspend/resume cycle were both confirmed to keep the speakers working with no
+manual intervention.</p>
+
+<h2>What would make this unnecessary upstream</h2>
+<p>Each of the three bugs has a natural upstream home:</p>
+<ul>
+<li><strong>linux-firmware:</strong> add the ASUS <code>1714-1-8.bin</code> /
+<code>1714-1-B.bin</code> TAS2783 calibration blobs (subject to ASUS/TI licensing — this is why the
+fix here extracts them from ASUS's own Windows driver package instead).</li>
+<li><strong>alsa-ucm-conf:</strong> add a <code>tas2783.conf</code> SoundWire codec profile (modeled
+on <code>rt1308.conf</code>), plus logic so a <code>cfg-amp:N</code> component (or an explicit
+<code>spk:tas2783</code> token from the <code>snd_acp_sdw_legacy_mach</code> machine driver) implies a
+Speaker device even without a recognized <code>spk:</code> codec. Separately, <code>rt721.conf</code>'s
+<code>Headphones</code> device shouldn't reference a <code>Headphone Switch</code> control that this
+codec/driver combination doesn't expose — ideally guarded with <code>ControlExists</code>.</li>
+<li><strong>kernel / amd-sdw / snd_pci_ps:</strong> the AMD ACP/SoundWire controller should survive
+s2idle suspend/resume on its own, and the <code>slave-tas2783</code> driver's firmware download to
+slave <code>01:b</code> shouldn't intermittently time out (<code>-110</code>) at cold boot.</li>
+</ul>
+<p>Until then, the full set of firmware, UCM configs, scripts and systemd units described above is
+available at
+<a href="https://github.com/brainchillz/asus-proart-px13-linux-speaker-fix">github.com/brainchillz/asus-proart-px13-linux-speaker-fix</a>.</p>
+</div>
+
+<footer>
+  The fix: <a href="https://github.com/brainchillz/asus-proart-px13-linux-speaker-fix">github.com/brainchillz/asus-proart-px13-linux-speaker-fix</a> —
+  firmware, UCM configs, scripts and systemd units for the ASUS ProArt PX13 (HN7306, Strix Halo).<br>
+  Calibration blobs are TI/ASUS proprietary and are not redistributed; only the scripts and configs
+  that consume them are published.<br>
+  Self-contained page — no external requests; light/dark follows your OS.
+</footer>
+
+</div>
+</body>
+</html>

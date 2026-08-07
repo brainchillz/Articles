@@ -147,6 +147,31 @@ occasional thing built because it should exist.</p>
   <a class="readmore" href="Articles/IPAM-DNS-DHCP-STORY/index.html">Read the article</a>
 </article>
 
+<article class="post">
+  <div class="meta"><b>Reverse engineering · Field notes</b></div>
+  <h2><a href="Articles/QNAP-SWITCH-STORY/index.html">The switch that had no API</a></h2>
+  <p>A 25-gigabit QNAP switch with an excellent chassis and a miserable management story: a
+  sluggish web GUI, no SSH, no Telnet, and not a page of documentation. But a web UI is just a
+  program talking to the switch over the network — so I read its minified JavaScript, and one
+  regex mapped the whole hidden REST API: <code>126 endpoints</code>, before making a single call.
+  This is how that turned into <code>qsw.py</code>, a tool that manages the switch from a text file
+  instead of a spinner.</p>
+  <a class="readmore" href="Articles/QNAP-SWITCH-STORY/index.html">Read the article</a>
+</article>
+
+<article class="post">
+  <div class="meta"><b>Linux · Audio · Field notes</b></div>
+  <h2><a href="Articles/PX13-AUDIO-STORY/index.html">Three bugs deep: internal speakers on the ASUS
+  ProArt PX13 under Linux</a></h2>
+  <p>The ASUS ProArt PX13 (HN7306, "Strix Halo") plays audio over HDMI out of the box, but its
+  internal speakers are dead silent — PipeWire shows only a "Dummy Output". Real, persistent sound
+  turned out to require peeling back three independent bugs stacked on top of each other: a
+  calibration firmware blob that ships only in ASUS's Windows driver, a missing (and separately
+  broken) ALSA UCM profile, and an AMD ACP/SoundWire controller that doesn't survive boot or
+  suspend/resume. A root-cause tour of each layer, and the fix for it.</p>
+  <a class="readmore" href="Articles/PX13-AUDIO-STORY/index.html">Read the article</a>
+</article>
+
 </div>
 
 <footer>

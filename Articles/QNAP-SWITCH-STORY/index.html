@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The switch that had no API — reverse-engineering the QNAP QSW-M5216-1T</title>
+<style>
+  /* Same token system as the rest of the family. */
+  :root {
+    --bg: #efece6; --surface: #f9f7f3; --well: #efece6;
+    --line: #d5cfc4; --line-soft: #e3ded5;
+    --text: #2b2721; --muted: #767061;
+    --accent: #a84a0c; --ok: #5f7d3d; --warn: #96701d; --crit: #a83440;
+    --pool: #33708f;
+    --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1b1c1e; --surface: #212225; --well: #161719;
+      --line: #3a3833; --line-soft: #2f2e2b;
+      --text: #d8d4cc; --muted: #8f8b82;
+      --accent: #c1550f; --ok: #82a35c; --warn: #d09c3c; --crit: #cf545e;
+      --pool: #5f93ad;
+    }
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 16px/1.65 var(--sans);
+    padding: 48px 20px 90px;
+  }
+  .page { max-width: 880px; margin: 0 auto; }
+  .prose { max-width: 72ch; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 12px;
+  }
+  h1 { font-size: 34px; line-height: 1.2; letter-spacing: -0.01em; font-weight: 750;
+       text-wrap: balance; margin-bottom: 14px; }
+  .dek { font-size: 18px; color: var(--muted); max-width: 62ch; margin-bottom: 10px; }
+  .byline { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-bottom: 44px; }
+  .byline b { color: var(--text); font-weight: 600; }
+
+  h2 {
+    font-size: 22px; font-weight: 700; margin: 54px 0 14px;
+    padding-top: 22px; border-top: 1px solid var(--line);
+  }
+  h3 { font-size: 16px; font-weight: 700; margin: 26px 0 8px; }
+  p { margin: 0 0 14px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: var(--mono); font-size: 0.86em;
+    background: var(--well); border: 1px solid var(--line-soft);
+    border-radius: 2px; padding: 1px 5px;
+  }
+  pre {
+    font-family: var(--mono); font-size: 13px; line-height: 1.7;
+    background: var(--well); border: 1px solid var(--line-soft);
+    border-radius: 2px; padding: 12px 14px; margin: 0 0 14px;
+    overflow-x: auto;
+  }
+  pre code { background: none; border: none; padding: 0; font-size: inherit; }
+  pre .c { color: var(--muted); }
+  pre .pr { color: var(--accent); }
+  pre .ok { color: var(--ok); }
+  pre .wn { color: var(--crit); }
+  pre .hl { color: var(--text); font-weight: 650; }
+  ul, ol { margin: 0 0 14px 1.3em; }
+  li { margin-bottom: 6px; }
+  strong { font-weight: 650; }
+
+  .callout {
+    border: 1px solid var(--line-soft); border-left: 2px solid var(--accent);
+    border-radius: 2px; padding: 12px 16px; margin: 18px 0;
+    font-size: 14.5px;
+  }
+  .callout.olive { border-left-color: var(--ok); }
+  .callout .k { font-family: var(--mono); font-size: 11px; text-transform: uppercase;
+                letter-spacing: 0.08em; color: var(--accent); display: block; margin-bottom: 4px; }
+  .callout.olive .k { color: var(--ok); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; margin: 18px 0 8px;
+          background: var(--surface); border: 1px solid var(--line); }
+  th {
+    text-align: left; padding: 8px 12px; background: var(--well);
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted);
+    border-bottom: 1px solid var(--line);
+  }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td.mono { font-family: var(--mono); font-size: 13px; color: var(--text); }
+  td.verb { font-family: var(--mono); font-size: 13px; color: var(--muted); white-space: nowrap; }
+  td:first-child { font-family: var(--mono); font-size: 13px; color: var(--text); white-space: nowrap; }
+  .tablewrap { overflow-x: auto; }
+
+  .steps-list { counter-reset: step; list-style: none; margin: 18px 0; padding: 0; }
+  .steps-list li {
+    counter-increment: step; position: relative;
+    padding: 10px 0 10px 44px; border-bottom: 1px solid var(--line-soft);
+  }
+  .steps-list li::before {
+    content: counter(step); position: absolute; left: 0; top: 10px;
+    width: 26px; height: 26px; border: 1px solid var(--accent); border-radius: 2px;
+    color: var(--accent); font-family: var(--mono); font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .steps-list b { font-weight: 650; }
+
+  footer {
+    margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--line);
+    font-family: var(--mono); font-size: 12.5px; color: var(--muted); line-height: 1.8;
+  }
+  footer b { color: var(--text); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<div class="eyebrow">Reverse engineering · Field notes</div>
+<h1>The switch that had no API</h1>
+<p class="dek">A 25-gigabit QNAP switch, a sluggish web GUI, no SSH, and not a page of
+documentation. So I read the JavaScript, found the hidden REST API it was hiding behind, and
+wrote my own tool to drive it.</p>
+<p class="byline">The tool: <b>qsw.py</b> — one Python file, a client layer plus a CLI, idempotent
+with dry-run and automatic backups · target: <b>QNAP QSW-M5216-1T</b> · July 2026 · ~9 min read.</p>
+
+<div class="prose">
+<h2>A lovely box wrapped around one frustrating limitation</h2>
+<p>I have a QNAP QSW-M5216-1T — sixteen ports of 25-gigabit fiber plus a 10-gig copper uplink,
+sitting right at the center of my network. The hardware is excellent. The management story is
+not: the only supported way to configure it is a slow single-page web app. Add a VLAN? Click
+through the GUI. Tag a port? GUI. Every single time.</p>
+<p>There is no SSH. No Telnet. No published API. QNAP's answer to "how do I automate this" is,
+essentially, <em>you don't</em>.</p>
+<p>But here's the thing about a web UI: it is a program, and that program is talking to the
+switch over the network. If I could work out what it was saying, I could say the same things
+myself — from a script, a cron job, a config file checked into git. So I went looking.</p>
+
+<h2>Knock on every port first</h2>
+<p>Before anything clever, the boring question: what is this thing even listening on?</p>
+</div>
+
+<pre><code><span class="pr">$</span> for p in 22 23 80 161 443; do nc -zv -w2 192.0.2.10 $p; done
+22/tcp   <span class="wn">timed out</span>     <span class="c"># no SSH</span>
+23/tcp   <span class="wn">refused</span>       <span class="c"># no Telnet</span>
+80/tcp   <span class="ok">open</span>          <span class="c"># HTTP  — the web UI</span>
+443/tcp  <span class="ok">open</span>          <span class="c"># HTTPS</span>
+161/udp  <span class="ok">open</span>          <span class="c"># SNMP  (read-only; no VLAN writes)</span></code></pre>
+
+<div class="prose">
+<p>No shell access of any kind, so this switch can't be driven like a Cisco or Arista box. SNMP
+is monitoring-oriented — great for graphs, useless for creating VLANs. That left exactly one
+real avenue: whatever the web UI on port 80 was doing. Which is what I was hoping for.</p>
+<p>Fetching the root page returned a near-empty HTML shell — a single <code>&lt;div id="app"&gt;</code>
+and three webpack bundles. That's a <strong>single-page app</strong>: an empty container that
+JavaScript fills in at runtime. And crucially, every backend call the UI makes lives inside
+those bundles, in plain sight.</p>
+
+<h2>The app is just JavaScript, and JavaScript can be read</h2>
+<p>I downloaded <code>app.js</code> and <code>vendor.js</code> — minified, but not obfuscated.
+Minification mangles variable names; it doesn't hide string literals. And a REST client is made
+of string literals. Searching the bundle for URL-shaped strings turned up the base immediately:
+<code>/api/v1</code>.</p>
+<p>The endpoints themselves are built dynamically — the code uses one axios instance (minified to
+<code>Hi</code>) and one base constant (<code>Fi = "/api/v1"</code>), so every call looks like
+<code>Hi.get(Fi + "/vlan")</code>. That is a <em>pattern</em>. And a pattern is a regex.</p>
+</div>
+
+<pre><code><span class="c"># every backend call in the bundle has the same shape:</span>
+<span class="c">#   Hi.get(Fi + "/vlan")   Hi.post(Fi + "/lacp/group")   ...</span>
+<span class="pr">$</span> grep -oE 'Hi\.(get|post|put|delete)\(Fi\+"[^"]+"' app.js | sort -u
+   <span class="hl">&rarr; 126 endpoints</span>  <span class="c"># vlans, ports, lacp, acl, qos, rstp, poe, snmp, lldp…</span></code></pre>
+
+<div class="prose">
+<div class="callout">
+  <span class="k">One regex, zero requests</span>
+  A single regular expression mapped the entire API — <strong>126 endpoints</strong> — without
+  making one call to the switch.
+</div>
+<p>Better still, the service functions were named things like <code>getVlan</code>,
+<code>setVlan</code>, <code>delVlan</code>, and <code>addLagStatus</code>. Minification kept
+those names. So the purpose of each endpoint was legible straight from the code, before I ever
+sent a byte.</p>
+
+<h2>Getting in</h2>
+<p>Reading the <code>postLogin</code> action gave the whole handshake. The UI POSTs a username and
+a password to <code>/api/v1/users/login</code> — but the password is run through a function
+called <code>ezEncode</code> first. That looked like it might be a custom cipher. It wasn't.</p>
+<p>I pulled <code>ezEncode</code>'s implementation out of the bundle and found it building output
+from this alphabet: <code>ABC…xyz0123456789+/</code>. That's the standard Base64 alphabet.
+<code>ezEncode</code> is just a hand-rolled Base64 encoder. The "encoding" is
+<code>base64(password)</code> — no secret, no salt, no hash.</p>
+</div>
+
+<pre><code><span class="pr">$</span> curl -s -X POST http://192.0.2.10/api/v1/users/login \
+     -H 'Content-Type: application/json' \
+     -d '{"username":"&lt;user&gt;","password":"'$(printf %s 'hunter2' | base64)'"}'
+
+{"error_code":<span class="ok">200</span>,"error_message":"OK","result":"<span class="hl">eyJhbGciOiJSUzI1NiI…</span>"}</code></pre>
+
+<div class="prose">
+<p>That <code>result</code> is a <strong>JWT</strong>. Decode its payload and the switch tells you
+exactly who it thinks you are:</p>
+</div>
+
+<pre><code>{"Ip":"192.0.2.20","Privilege":<span class="hl">15</span>,"UserName":"&lt;user&gt;","iat":1783229194}</code></pre>
+
+<div class="prose">
+<p>From there, every other call carries <code>Authorization: Bearer &lt;jwt&gt;</code>. There's no
+<code>exp</code> claim — the session is tracked server-side — so a stale token just starts
+returning <code>401</code>, at which point you log in again and retry. That single rule ("on a
+401, re-authenticate once") is the entire session-management story.</p>
+
+<h2>How the API talks — and the trap in it</h2>
+<p>Almost every response is wrapped the same way:
+<code>{"error_code":200,"error_message":"OK","result":…}</code>. Collections come back as arrays
+of <code>{key, val}</code>. Simple enough to read.</p>
+<p>Writing is where it got interesting. Different endpoints expect <strong>different body
+shapes</strong>, and — this is the part that cost me an hour — sending the wrong shape doesn't
+error. It returns <code>200 OK</code> with <code>result: null</code> and silently changes
+nothing.</p>
+<p>I hit this trying to set a port's MTU. My request looked right, the switch said OK, and the MTU
+didn't budge. The fix was to stop guessing and read the exact object the UI builds for that
+action — which turned out to be <code>{idx, data}</code>, not the <code>{key, val}</code> that
+the matching GET returns. Here's the map I ended up with:</p>
+</div>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>Endpoint</th><th>Verb</th><th>Body shape</th></tr></thead>
+  <tbody>
+    <tr><td>/vlan</td><td class="verb">POST · PUT</td><td class="mono">{"data":[{"key","val":[…]}]}</td></tr>
+    <tr><td>/vlan</td><td class="verb">DELETE</td><td class="mono">{"idx":["100"]}</td></tr>
+    <tr><td>/portlist</td><td class="verb">PUT</td><td class="mono">[{"idx","data":{…}}] ← not key/val!</td></tr>
+    <tr><td>/lacp/group</td><td class="verb">POST</td><td class="mono">{"idx","data":{PortMembers,AggrMode}}</td></tr>
+    <tr><td>/system/save</td><td class="verb">PUT</td><td class="mono">{} — persists running→startup</td></tr>
+    <tr><td>/system/config</td><td class="verb">POST</td><td class="mono">multipart form-data, field "conf"</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="prose">
+<div class="callout">
+  <span class="k">The lesson</span>
+  A <code>200</code> is not proof a write took effect. On an undocumented API, always read the
+  value back — the switch will happily accept a request it has no intention of honoring.
+</div>
+
+<h2>What the data told me</h2>
+<p>With reads and writes both working, the switch's actual model came into focus — including
+several things the web UI never shows you. VLANs, for instance, are a pure 802.1Q membership
+table: a list of ports, each tagged or untagged. There is no port "mode," no PVID… and no place
+to put a name. I tried anyway:</p>
+</div>
+
+<pre><code><span class="pr">$</span> <span class="c"># create VLAN 3990 and ask it to remember a name…</span>
+<span class="pr">$</span> curl … -d '{"data":[{"key":"3990","<span class="wn">name":"STORAGE"</span>,"val":[…]}]}'
+{"error_code":<span class="ok">200</span>,"error_message":"OK"}
+
+<span class="pr">$</span> <span class="c"># …now read it back:</span>
+{"key":"3990","val":[{"Port":"16","Tagged":true}]}   <span class="c"># the name is gone.</span></code></pre>
+
+<div class="prose">
+<p>So the firmware simply has no concept of VLAN names — which is why my tool stores them locally
+and paints them back on. That was one of six behaviors that only surfaced through live testing.
+Every one of them is now baked into the tool as code, so nobody has to rediscover it:</p>
+</div>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>Behavior</th><th>What actually happens</th></tr></thead>
+  <tbody>
+    <tr><td>Silent no-op writes</td><td>The wrong body shape returns <code>200</code> and changes nothing. Read the UI's exact payload; always verify.</td></tr>
+    <tr><td>VLAN names don't exist</td><td>Sent, accepted, silently discarded. The GUI has no name field either. Labels have to live client-side.</td></tr>
+    <tr><td>MTU is hidden but real</td><td>Not in the GUI at all, yet fully settable per interface. Empirically the switch clamps it at 10000; default is 9016.</td></tr>
+    <tr><td>There is no "trunk mode"</td><td>No PVID, no port mode — a trunk is literally "tagged member of every VLAN." A VLAN made later won't include a port until you re-add it.</td></tr>
+    <tr><td>Bonding wipes VLANs</td><td>Creating a link-aggregation group resets its member ports' VLAN config. Bond first, then assign VLANs to the LAG interface.</td></tr>
+    <tr><td>Running vs. startup</td><td>Writes take effect immediately but vanish on reboot until you <code>PUT /system/save</code> with an empty body.</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="prose">
+<h2>Turning it into a tool</h2>
+<p>Knowing the API is one thing; living with it is another. I wrapped everything in a single
+Python file, <code>qsw.py</code>, in two layers. Underneath sits a client class that handles the
+unglamorous parts — Base64 login, JWT caching, unwrapping the response envelope, re-authenticating
+on a 401, and knowing each endpoint's quirky body shape. On top sits a CLI that speaks in terms a
+network admin actually thinks in.</p>
+<p>That second layer is where the real value is. The switch models VLANs as per-VLAN membership
+tables; I want to say "make port 17 a trunk" or "reconcile the whole switch to this file." So the
+tool translates intent into the switch's model — and does it idempotently, with a dry-run and an
+automatic backup before anything is written.</p>
+</div>
+
+<pre><code><span class="pr">$</span> qsw <span class="hl">vlans</span>                         <span class="c"># the whole VLAN table, with labels</span>
+<span class="pr">$</span> qsw <span class="hl">trunk</span> 17 --native mgmt        <span class="c"># tag port 17 on every VLAN</span>
+<span class="pr">$</span> qsw <span class="hl">find</span> a89c6c                   <span class="c"># which port is this host on?</span>
+  A8:9C:6C:88:10:2D  ->  port 11, VLAN 30
+<span class="pr">$</span> qsw <span class="hl">apply</span> switch.yaml --dry-run    <span class="c"># reconcile from a declarative file</span></code></pre>
+
+<div class="prose">
+<div class="callout olive">
+  <span class="k">Guiding principle</span>
+  <strong>The switch's own web UI is the reference implementation.</strong> Whenever a body shape
+  or a field value was unclear, the answer was never a guess — it was sitting right there in how
+  the UI built that exact request.
+</div>
+
+<h2>If you want to do this to your own gear</h2>
+<p>Nothing here is specific to QNAP. Any appliance with a modern web UI and no official API is a
+candidate, and the workflow is the same every time:</p>
+
+<ol class="steps-list">
+  <li><b>Scan first</b> to find the management surface and rule out a real CLI.</li>
+  <li><b>Spot the SPA</b> and pull its JavaScript bundles.</li>
+  <li><b>Regex the bundle</b> for the API base and the request pattern — that maps the whole
+  surface for free.</li>
+  <li><b>Lift the auth flow</b> straight from the login code and reproduce it with
+  <code>curl</code>.</li>
+  <li><b>Confirm live:</b> reads first, then careful writes on something you can afford to break —
+  a link-down port, a throwaway VLAN — always reading back, always reverting.</li>
+</ol>
+
+<p>Every write in this project was tested on unused ports and disposable VLAN IDs and then
+reverted; the switch went back to its exact original state after each experiment. The reward for a
+couple of evenings of reading minified JavaScript is a switch I now manage from a text file
+instead of a spinner — and a small map of an API that officially doesn't exist.</p>
+</div>
+
+<footer>
+  <b>The tool, in one screen:</b> nineteen commands, one Python file, zero clicks —
+  <code>vlans · vlan · add · set · del</code> (VLAN CRUD),
+  <code>trunk · access · name</code> (port roles &amp; local labels),
+  <code>port · mtu · lag</code> (interface, frame size, bonding),
+  <code>macs · find · neighbors · health</code> (visibility),
+  <code>apply · backup · restore · save</code> (declarative config &amp; safety),
+  and <code>raw</code>, an escape hatch to all 126 endpoints.<br>
+  Field notes from reverse-engineering the QNAP QSW-M5216-1T. All testing done on link-down ports
+  and throwaway VLAN IDs, reverted after each run.<br>
+  Self-contained page — no external requests; light/dark follows your OS.
+</footer>
+
+</div>
+</body>
+</html>
