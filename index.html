@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>davidrodgers.com</title>
+<style>
+  /* Same token system as the articles. */
+  :root {
+    --bg: #efece6; --surface: #f9f7f3; --well: #efece6;
+    --line: #d5cfc4; --line-soft: #e3ded5;
+    --text: #2b2721; --muted: #767061;
+    --accent: #a84a0c; --ok: #5f7d3d; --warn: #96701d; --crit: #a83440;
+    --pool: #33708f;
+    --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1b1c1e; --surface: #212225; --well: #161719;
+      --line: #3a3833; --line-soft: #2f2e2b;
+      --text: #d8d4cc; --muted: #8f8b82;
+      --accent: #c1550f; --ok: #82a35c; --warn: #d09c3c; --crit: #cf545e;
+      --pool: #5f93ad;
+    }
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 16px/1.65 var(--sans);
+    padding: 40px 20px 90px;
+  }
+  .page { max-width: 880px; margin: 0 auto; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: var(--mono); font-size: 0.86em;
+    background: var(--well); border: 1px solid var(--line-soft);
+    border-radius: 2px; padding: 1px 5px;
+  }
+  strong { font-weight: 650; }
+
+  /* Masthead */
+  header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    flex-wrap: wrap; gap: 14px 24px;
+    padding-bottom: 18px; border-bottom: 1px solid var(--line);
+    margin-bottom: 10px;
+  }
+  .site-name {
+    font-family: var(--mono); font-size: 20px; font-weight: 700;
+    letter-spacing: -0.01em; color: var(--text);
+  }
+  .site-name .tld { color: var(--accent); }
+  nav { display: flex; gap: 26px; }
+  nav a {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--muted);
+    padding-bottom: 4px; border-bottom: 2px solid transparent;
+  }
+  nav a:hover { color: var(--text); text-decoration: none; }
+  nav a.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .tagline {
+    font-family: var(--mono); font-size: 12px; color: var(--muted);
+    margin-bottom: 52px;
+  }
+  .tagline b { color: var(--text); font-weight: 600; }
+
+  /* Section head */
+  .section-head {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 20px;
+  }
+
+  /* Article cards */
+  .post {
+    background: var(--surface); border: 1px solid var(--line);
+    border-top: 2px solid var(--accent); border-radius: 2px;
+    padding: 24px 28px 22px; margin-bottom: 26px;
+  }
+  .post .meta {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 10px;
+  }
+  .post .meta b { color: var(--accent); font-weight: 600; }
+  .post h2 {
+    font-size: 24px; line-height: 1.25; letter-spacing: -0.01em;
+    font-weight: 750; text-wrap: balance; margin-bottom: 10px;
+  }
+  .post h2 a { color: var(--text); }
+  .post h2 a:hover { color: var(--accent); text-decoration: none; }
+  .post p { color: var(--muted); font-size: 15.5px; max-width: 68ch; margin-bottom: 14px; }
+  .post .readmore {
+    font-family: var(--mono); font-size: 12.5px; letter-spacing: 0.04em;
+  }
+  .post .readmore::after { content: " \2192"; }
+
+  footer {
+    margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--line);
+    font-family: var(--mono); font-size: 12.5px; color: var(--muted); line-height: 1.8;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <div class="site-name">davidrodgers<span class="tld">.com</span></div>
+  <nav>
+    <a href="#articles" class="active">Articles</a>
+    <a href="code/">Code</a>
+    <a href="fun/">Fun</a>
+    <a href="about/">About</a>
+  </nav>
+</header>
+
+<p class="tagline">Notes from the workbench — <b>infrastructure</b>, <b>tooling</b>, and the
+occasional thing built because it should exist.</p>
+
+<div id="articles">
+<div class="section-head">Latest articles</div>
+
+<article class="post">
+  <div class="meta"><b>Apple Silicon · Linux environments</b></div>
+  <h2><a href="Articles/APPBOX-STORY/index.html">WSL-class Linux on a Mac, assembled from parts Apple
+  already shipped</a></h2>
+  <p>macOS is a Unix, but it stopped being close enough the moment your production target
+  became a Linux container. AppBox turns Apple's <code>container</code> tool into named,
+  persistent Linux machines that boot systemd, share your home directory at the same path,
+  and arrive with the thirty-odd command-line tools a base image forgot — all from an icon
+  by the clock. If <code>lxc launch</code> is muscle memory, this is that reflex, on the
+  laptop.</p>
+  <a class="readmore" href="Articles/APPBOX-STORY/index.html">Read the article</a>
+</article>
+
+<article class="post">
+  <div class="meta"><b>Homelab infrastructure · DDI</b></div>
+  <h2><a href="Articles/IPAM-DNS-DHCP-STORY/index.html">DNS, DHCP and IPAM without the enterprise
+  price tag</a></h2>
+  <p>Every network answers three questions constantly: what is this machine called, what
+  address does it get, and who is supposed to be using it. The enterprise world sells
+  appliances for that; everyone else has a hosts file, a router tab, and a spreadsheet that
+  was accurate in March. This is how two small self-hosted tools — Nexus IPAM and
+  DNSMAQ-MGR — grow into most of what an Infoblox-class DDI suite does, and how a VM
+  deployer on top turns the address plan into one-click provisioning.</p>
+  <a class="readmore" href="Articles/IPAM-DNS-DHCP-STORY/index.html">Read the article</a>
+</article>
+
+</div>
+
+<footer>
+  &copy; 2026 David Rodgers · <a href="https://github.com/brainchillz">github.com/brainchillz</a><br>
+  Self-contained page — no external requests; light/dark follows your OS.
+</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNS, DHCP and IPAM for the homelab — the Nexus DDI stack</title>
+<style>
+  /* Nexus family tokens — the same system the screenshots wear. */
+  :root {
+    --bg: #efece6; --surface: #f9f7f3; --well: #efece6;
+    --line: #d5cfc4; --line-soft: #e3ded5;
+    --text: #2b2721; --muted: #767061;
+    --accent: #a84a0c; --ok: #5f7d3d; --warn: #96701d; --crit: #a83440;
+    --pool: #33708f;
+    --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1b1c1e; --surface: #212225; --well: #161719;
+      --line: #3a3833; --line-soft: #2f2e2b;
+      --text: #d8d4cc; --muted: #8f8b82;
+      --accent: #c1550f; --ok: #82a35c; --warn: #d09c3c; --crit: #cf545e;
+      --pool: #5f93ad;
+    }
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 16px/1.65 var(--sans);
+    padding: 48px 20px 90px;
+  }
+  .page { max-width: 880px; margin: 0 auto; }
+  .prose { max-width: 72ch; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 12px;
+  }
+  h1 { font-size: 34px; line-height: 1.2; letter-spacing: -0.01em; font-weight: 750;
+       text-wrap: balance; margin-bottom: 14px; }
+  .dek { font-size: 18px; color: var(--muted); max-width: 62ch; margin-bottom: 10px; }
+  .byline { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-bottom: 44px; }
+  .byline b { color: var(--text); font-weight: 600; }
+
+  h2 {
+    font-size: 22px; font-weight: 700; margin: 54px 0 14px;
+    padding-top: 22px; border-top: 1px solid var(--line);
+  }
+  h3 { font-size: 16px; font-weight: 700; margin: 26px 0 8px; }
+  p { margin: 0 0 14px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: var(--mono); font-size: 0.86em;
+    background: var(--well); border: 1px solid var(--line-soft);
+    border-radius: 2px; padding: 1px 5px;
+  }
+  ul, ol { margin: 0 0 14px 1.3em; }
+  li { margin-bottom: 6px; }
+  strong { font-weight: 650; }
+
+  figure { margin: 22px 0 26px; }
+  figure img {
+    display: block; width: 100%; height: auto;
+    border: 1px solid var(--line); border-radius: 3px;
+  }
+  figure.narrow { max-width: 560px; }
+  figcaption {
+    font-family: var(--mono); font-size: 12px; color: var(--muted);
+    margin-top: 8px; line-height: 1.5;
+  }
+  .fig-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 700px) { .fig-pair { grid-template-columns: 1fr; } }
+
+  .callout {
+    border: 1px solid var(--line-soft); border-left: 2px solid var(--accent);
+    border-radius: 2px; padding: 12px 16px; margin: 18px 0;
+    font-size: 14.5px;
+  }
+  .callout.olive { border-left-color: var(--ok); }
+  .callout .k { font-family: var(--mono); font-size: 11px; text-transform: uppercase;
+                letter-spacing: 0.08em; color: var(--accent); display: block; margin-bottom: 4px; }
+  .callout.olive .k { color: var(--ok); }
+
+  /* Flow diagram — plain themed boxes, no external anything. */
+  .flow { margin: 24px 0 8px; overflow-x: auto; }
+  .flow-row { display: flex; align-items: stretch; gap: 0; min-width: 640px; }
+  .fnode {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 2px;
+    padding: 10px 14px; min-width: 132px; flex: 1;
+  }
+  .fnode .t { font-weight: 650; font-size: 14px; }
+  .fnode .s { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
+  .fnode.accent { border-top: 2px solid var(--accent); }
+  .fnode.ok { border-top: 2px solid var(--ok); }
+  .fnode.pool { border-top: 2px solid var(--pool); }
+  .farrow {
+    align-self: center; font-family: var(--mono); font-size: 11px; color: var(--muted);
+    padding: 0 10px; white-space: nowrap; text-align: center; flex: none;
+  }
+  .farrow b { display: block; color: var(--accent); font-size: 14px; }
+  .flow-note { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-top: 10px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; margin: 18px 0 8px;
+          background: var(--surface); border: 1px solid var(--line); }
+  th {
+    text-align: left; padding: 8px 12px; background: var(--well);
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted);
+    border-bottom: 1px solid var(--line);
+  }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td.y { color: var(--ok); font-family: var(--mono); font-size: 13px; }
+  td.n { color: var(--muted); font-family: var(--mono); font-size: 13px; }
+  td.p { color: var(--warn); font-family: var(--mono); font-size: 13px; }
+  .tablewrap { overflow-x: auto; }
+
+  .steps-list { counter-reset: step; list-style: none; margin: 18px 0; padding: 0; }
+  .steps-list li {
+    counter-increment: step; position: relative;
+    padding: 10px 0 10px 44px; border-bottom: 1px solid var(--line-soft);
+  }
+  .steps-list li::before {
+    content: counter(step); position: absolute; left: 0; top: 10px;
+    width: 26px; height: 26px; border: 1px solid var(--accent); border-radius: 2px;
+    color: var(--accent); font-family: var(--mono); font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .steps-list b { font-weight: 650; }
+
+  footer {
+    margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--line);
+    font-family: var(--mono); font-size: 12.5px; color: var(--muted); line-height: 1.8;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<div class="eyebrow">Homelab infrastructure · DDI</div>
+<h1>DNS, DHCP and IPAM without the enterprise price tag</h1>
+<p class="dek">How two small self-hosted tools — Nexus IPAM and DNSMAQ-MGR — grow into
+most of what an Infoblox-class DDI suite does for a small office or homelab, and how a
+VM deployer on top turns the address plan into one-click provisioning.</p>
+<p class="byline">The stack: <b>nexus-dnsmasq-mgr</b> · <b>NexusIPAM</b> · <b>VC-Deployer</b> — Python + Flask + vanilla JS, no build step, SQLite and JSON files, runs in a container or on bare metal.</p>
+
+<div class="prose">
+<h2>The problem every network has, at every size</h2>
+<p>Every network answers three questions constantly: <em>what is this machine called</em>
+(DNS), <em>what address does it get</em> (DHCP), and <em>who is supposed to be using which
+address</em> (IPAM). The enterprise world bundles those into a product category — DDI —
+and sells appliances for it: Infoblox, BlueCat, EfficientIP. They are excellent, and they
+are priced and sized for organizations with network teams.</p>
+<p>Below that line, the same three questions usually get answered with a hosts file on one
+box, the DHCP tab of a consumer router, and a spreadsheet that was accurate in March.
+The failure mode is always the same: the three sources drift apart, and one day two
+machines claim the same address, or a hostname points at a machine that was
+decommissioned last year. The information existed — it just lived in three places with
+no referee.</p>
+<p>The stack described here takes the enterprise idea — <strong>one system of record
+driving DNS and DHCP</strong> — and rebuilds it at homelab scale from two small,
+self-hosted web apps that also work perfectly well alone.</p>
+
+<h2>The serving layer: DNSMAQ-MGR</h2>
+<p><a href="https://github.com/brainchillz/nexus-dnsmasq-mgr">DNSMAQ-MGR</a> is a
+management plane for <code>dnsmasq</code>, the same lightweight resolver/DHCP server
+that already runs inside most routers. The app owns the configuration: everything lives
+in its JSON stores and renders into a dedicated conf-dir — the distro's own
+<code>dnsmasq.conf</code> is never touched. Every change is validated with
+<code>dnsmasq --test</code> against a temporary render before the live file is swapped
+atomically, and applied minimally: host records, static leases and options reload with a
+SIGHUP (zero downtime), only structural changes restart the daemon (~100&nbsp;ms).
+A bad edit is rejected with dnsmasq's own error message before it can touch the running
+service.</p>
+</div>
+
+<figure>
+  <img src="images/dnsmaq-overview.png" alt="DNSMAQ-MGR overview: dnsmasq running, DNS cache stats, DHCP leases, pool utilization">
+  <figcaption>dnsmasq under management: supervised service state, cache hit ratio, live
+  lease counts and pool utilization on one screen.</figcaption>
+</figure>
+
+<div class="fig-pair">
+  <figure>
+    <img src="images/dnsmaq-dns.png" alt="DNS overrides: host records, CNAMEs, domain overrides">
+    <figcaption>The hosts file, grown up: A/AAAA records, CNAMEs, domain overrides and
+    forwards, all validated before apply.</figcaption>
+  </figure>
+  <figure>
+    <img src="images/dnsmaq-dhcp.png" alt="DHCP pools, static leases, options and live leases">
+    <figcaption>DHCP with pools, reservations, options — and a probe that warns before
+    you start a second DHCP server on a network that already has one.</figcaption>
+  </figure>
+</div>
+
+<div class="prose">
+<p>On top of the basics it carries the features that usually justify a bigger product:
+blocklist subscriptions for ad/malware sinking, an opt-in <strong>encrypted DNS
+upstream</strong> (a supervised <code>dnscrypt-proxy</code> speaking DoH/DNSCrypt,
+fail-closed by default so a dead proxy stops resolution rather than silently leaking
+plaintext queries to the ISP), PXE/UEFI network-boot options, a query log, statistics
+and history — and, crucially for this story, <strong>config mirroring</strong>: a primary
+node pushes selected config sections to standby nodes, so ns1 and ns2 answer
+identically without hand-syncing anything.</p>
+
+<h2>The system of record: Nexus IPAM</h2>
+<p><a href="https://github.com/brainchillz/NexusIPAM">Nexus IPAM</a> is the address
+plan. Networks nest under supernets, carry VLANs, gateways, DNS servers and domains;
+every address record can hold multiple names (deliberate parallel A records are a
+first-class shape, not an anomaly), a MAC, and a link to the thing that uses it —
+a device, a VM, or a container, organized into clusters with rack positions.</p>
+</div>
+
+<figure>
+  <img src="images/ipam-overview.png" alt="Nexus IPAM overview: address space, networks, records, inventory, busiest subnets">
+  <figcaption>The plan at a glance — and the reconcile banner up top the moment reality
+  disagrees with it.</figcaption>
+</figure>
+
+<figure>
+  <img src="images/ipam-network-detail.png" alt="Network detail with a per-address IP map">
+  <figcaption>One cell per address: assigned, reserved, DHCP pool, deprecated,
+  unmanaged. The flag marks the gateway; DHCP-pool addresses count as consumed
+  even when no lease exists yet.</figcaption>
+</figure>
+
+<div class="prose">
+<p>What separates an IPAM from a spreadsheet is that a spreadsheet can't check itself.
+Here the <strong>Scan &amp; Verify</strong> page treats the plan as a set of claims and a
+silent ping as evidence, using the system <code>ping</code> binary so it needs no special
+privileges. A sweep sorts the world into: hosts answering with <em>no</em> record
+(someone assigned an address without recording it — the exact conflict an address plan
+exists to prevent), DHCP leases (expected, reported separately, never mistaken for
+anomalies), and records that never answer (machines that quietly stopped existing).
+One click adopts a rogue into the plan with its discovered hostname and MAC.</p>
+</div>
+
+<figure>
+  <img src="images/ipam-scan.png" alt="Scan and verify: unmanaged hosts, DHCP leases seen, silent records">
+  <figcaption>Claim vs. evidence: three unmanaged responders to adopt, two silent
+  records to question.</figcaption>
+</figure>
+
+<div class="prose">
+<h2>Wired together: one writer, everything else renders</h2>
+<p>Each tool is genuinely standalone. Wired together they follow one rule, borrowed
+straight from how the big DDI suites keep their sanity:</p>
+
+<div class="callout">
+  <span class="k">The non-negotiable</span>
+  <strong>Single writer per data class.</strong> Exactly one system authors each kind of
+  fact; everything else renders, serves, or observes it. IPAM owns address assignments
+  and names. Each DNS node owns its own server behaviour — upstreams, blocklists,
+  encrypted DNS. Leases are observed, never authored.
+</div>
+
+<p>Concretely: IPAM pushes the <code>hosts</code> section to both DNS nodes through
+DNSMAQ-MGR's <em>existing</em> mirror-receive endpoint — the same machinery the nodes
+already use to mirror each other. The pushed section locks read-only in the node UIs
+(edit names in IPAM, where the record of truth lives), and a
+<strong>Detach</strong> button on either node instantly restores local control. The
+integration required zero changes to DNSMAQ-MGR; to the DNS node, the IPAM is just
+another mirror source.</p>
+</div>
+
+<div class="flow">
+  <div class="flow-row">
+    <div class="fnode accent">
+      <div class="t">Nexus IPAM</div>
+      <div class="s">system of record<br>addresses · names · pools</div>
+    </div>
+    <div class="farrow"><b>&#8594;</b>mirror push<br>A + PTR</div>
+    <div class="fnode ok">
+      <div class="t">ns1 · DNSMAQ-MGR</div>
+      <div class="s">primary DNS<br>hosts section locked</div>
+    </div>
+    <div class="farrow"><b>&#8594;</b>node mirror</div>
+    <div class="fnode ok">
+      <div class="t">ns2 · DNSMAQ-MGR</div>
+      <div class="s">standby DNS<br>identical answers</div>
+    </div>
+    <div class="farrow"><b>&#8594;</b>re-push</div>
+    <div class="fnode pool">
+      <div class="t">Gateway DNS</div>
+      <div class="s">downstream-only peer<br>(router local DNS)</div>
+    </div>
+  </div>
+  <div class="flow-note">Push-based enforcement, no runtime coupling: the nodes serve
+  from local rendered state, so the IPAM being down never affects name resolution or
+  leasing.</div>
+</div>
+
+<div class="prose">
+<p>Names published this way land as A <em>and</em> PTR on every node, and the reverse
+flow works too: a one-shot importer reads an existing dnsmasq estate into the plan
+losslessly — aliases and all — because the project rule is <em>round-trip fidelity
+before authority</em>: IPAM may not become the writer for a data class until
+import&nbsp;&#8594;&nbsp;push-back reproduces the current state exactly.</p>
+
+<h2>How it stacks up against the big suites</h2>
+</div>
+
+<div class="tablewrap">
+<table>
+  <thead><tr><th>Capability</th><th>Enterprise DDI (Infoblox-class)</th><th>This stack</th></tr></thead>
+  <tbody>
+    <tr><td>Address plan: supernets, VLANs, utilization</td><td class="y">yes</td><td class="y">yes</td></tr>
+    <tr><td>Authoritative LAN DNS, A/AAAA/CNAME/PTR</td><td class="y">yes</td><td class="y">yes</td></tr>
+    <tr><td>DHCP scopes, reservations, options, PXE</td><td class="y">yes</td><td class="y">yes</td></tr>
+    <tr><td>IPAM &#8594; DNS enforcement (single writer)</td><td class="y">yes</td><td class="y">yes — mirror push, A + PTR</td></tr>
+    <tr><td>Redundant DNS via replication</td><td class="y">grid</td><td class="y">primary &#8594; standby mirroring</td></tr>
+    <tr><td>Network discovery &amp; reconciliation</td><td class="y">yes</td><td class="y">ping sweeps, adopt / silent records</td></tr>
+    <tr><td>Device / VM / container inventory</td><td class="y">yes</td><td class="y">with vCenter &amp; controller importers</td></tr>
+    <tr><td>API-first automation, tokens, roles, audit</td><td class="y">yes</td><td class="y">yes — every UI action is an API call</td></tr>
+    <tr><td>Encrypted upstream DNS (DoH/DNSCrypt)</td><td class="p">varies</td><td class="y">fail-closed by default</td></tr>
+    <tr><td>Multi-site anycast, DNS firewall feeds, support contracts</td><td class="y">yes</td><td class="n">no — and not the point</td></tr>
+    <tr><td>Footprint</td><td class="n">appliances / VMs + licensing</td><td class="y">two containers, SQLite + JSON</td></tr>
+  </tbody>
+</table>
+</div>
+
+<div class="prose">
+<div class="callout olive">
+  <span class="k">Honesty clause</span>
+  This is not an Infoblox clone. There is no anycast grid, no threat-feed DNS firewall,
+  no vendor on the phone at 3am. What it replicates is the <em>operating model</em> —
+  one source of truth enforcing DNS and DHCP, with discovery keeping it honest — which
+  is the part a small network actually drifts without.
+</div>
+
+<h2>The payoff: provisioning that talks to the plan</h2>
+<p>A DDI stack proves itself when other tools stop asking humans for addresses. The
+add-on here is <a href="https://github.com/brainchillz/VC-Deployer-Python">VC-Deployer</a>,
+a small web UI (and CLI) that clones vCenter templates into new VMs with cloud-init.
+Alongside <em>Static IP</em> and <em>DHCP</em>, it grows a third IP-assignment mode:
+<strong>IPAM</strong>.</p>
+</div>
+
+<figure class="narrow">
+  <img src="images/vmdeploy-ipam-mode.png" alt="VM Deployer networking card with the IPAM assignment mode selected">
+  <figcaption>The deploy form's networking card with IPAM mode selected — no address
+  fields to fill, because the plan fills them.</figcaption>
+</figure>
+
+<div class="prose">
+<p>Behind that button is one IPAM call — <code>POST /api/provision</code> — which does,
+atomically and in order:</p>
+
+<ol class="steps-list">
+  <li><b>Allocate</b> the next free address in the target network — skipping DHCP
+  pools, the gateway, and anything a sweep has seen answering.</li>
+  <li><b>Record</b> it with the VM's hostname (and any aliases), linked to the VM
+  object in the inventory.</li>
+  <li><b>Publish</b> the name to every DNS node — A and PTR on ns1 and ns2 via the
+  mirror push — <em>before the clone starts</em>.</li>
+  <li><b>Deploy:</b> clone the template, inject the address, gateway, DNS servers and
+  domain (all read from the network's plan entry) through cloud-init, power on.</li>
+  <li><b>On failure, release:</b> names removed, address freed, nodes re-pushed — the
+  half of the workflow everyone forgets, and the reason stale records exist.</li>
+</ol>
+
+<p>The VM boots already resolvable, with a forward and reverse record that agree, an
+inventory entry that says where it runs, and an address that can never collide with a
+lease — because the allocator and the DHCP plan are the same database. Deprovisioning
+is the exact inverse. No spreadsheet was consulted at any point.</p>
+</div>
+
+<figure class="narrow">
+  <img src="images/vmdeploy-form.png" alt="The full VM Deployer form">
+  <figcaption>The whole deployer: template, networking with the IPAM mode, access,
+  compute and storage — then one button.</figcaption>
+</figure>
+
+<div class="prose">
+<h2>Closing thought</h2>
+<p>None of this required a rack appliance or a license file. It required deciding which
+system owns which facts, refusing to let any tool write outside its lane, and making the
+plan verify itself against the wire. That operating discipline — not the hardware — is
+what the enterprise products actually sell. At small scale you can have it for the cost
+of two containers and an afternoon.</p>
+</div>
+
+<footer>
+  The stack: <a href="https://github.com/brainchillz/nexus-dnsmasq-mgr">nexus-dnsmasq-mgr</a> ·
+  <a href="https://github.com/brainchillz/NexusIPAM">NexusIPAM</a> ·
+  <a href="https://github.com/brainchillz/VC-Deployer-Python">VC-Deployer</a><br>
+  All screenshots show the bundled demo dataset ("Demo Lab — HQ" / dnsmasq-demo),
+  reproducible with each repo's <code>tools/seed_demo</code> script.<br>
+  Self-contained page — no external requests; light/dark follows your OS.
+</footer>
+
+</div>
+</body>
+</html>
