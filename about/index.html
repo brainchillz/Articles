@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>About — David Rodgers, Infrastructure Architect</title>
+<style>
+  /* Same token system as the rest of the site. */
+  :root {
+    --bg: #efece6; --surface: #f9f7f3; --well: #efece6;
+    --line: #d5cfc4; --line-soft: #e3ded5;
+    --text: #2b2721; --muted: #767061;
+    --accent: #a84a0c; --ok: #5f7d3d; --warn: #96701d; --crit: #a83440;
+    --pool: #33708f;
+    --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1b1c1e; --surface: #212225; --well: #161719;
+      --line: #3a3833; --line-soft: #2f2e2b;
+      --text: #d8d4cc; --muted: #8f8b82;
+      --accent: #c1550f; --ok: #82a35c; --warn: #d09c3c; --crit: #cf545e;
+      --pool: #5f93ad;
+    }
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 16px/1.65 var(--sans);
+    padding: 40px 20px 90px;
+  }
+  .page { max-width: 880px; margin: 0 auto; }
+  .prose { max-width: 72ch; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: var(--mono); font-size: 0.86em;
+    background: var(--well); border: 1px solid var(--line-soft);
+    border-radius: 2px; padding: 1px 5px;
+  }
+  strong { font-weight: 650; }
+
+  /* Masthead — identical to the front page */
+  header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    flex-wrap: wrap; gap: 14px 24px;
+    padding-bottom: 18px; border-bottom: 1px solid var(--line);
+    margin-bottom: 10px;
+  }
+  .site-name {
+    font-family: var(--mono); font-size: 20px; font-weight: 700;
+    letter-spacing: -0.01em; color: var(--text);
+  }
+  .site-name .tld { color: var(--accent); }
+  nav { display: flex; gap: 26px; }
+  nav a {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--muted);
+    padding-bottom: 4px; border-bottom: 2px solid transparent;
+  }
+  nav a:hover { color: var(--text); text-decoration: none; }
+  nav a.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--accent); margin: 44px 0 12px;
+  }
+  h1 { font-size: 34px; line-height: 1.15; letter-spacing: -0.01em; font-weight: 750;
+       margin-bottom: 6px; }
+  .role { font-size: 19px; color: var(--muted); margin-bottom: 12px; }
+  .disciplines {
+    font-family: var(--mono); font-size: 12px; color: var(--muted);
+    line-height: 1.9; margin-bottom: 44px;
+  }
+  .disciplines span { color: var(--text); }
+
+  h2 {
+    font-size: 22px; font-weight: 700; margin: 54px 0 14px;
+    padding-top: 22px; border-top: 1px solid var(--line);
+  }
+  p { margin: 0 0 14px; }
+  ul { margin: 0 0 14px 1.3em; }
+  li { margin-bottom: 7px; }
+
+  /* Employment blocks */
+  .job { margin: 30px 0 0; }
+  .job-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    flex-wrap: wrap; gap: 4px 18px; margin-bottom: 2px;
+  }
+  .job-co { font-size: 18px; font-weight: 700; letter-spacing: -0.005em; }
+  .job-when { font-family: var(--mono); font-size: 12.5px; color: var(--accent); white-space: nowrap; }
+  .job-title { font-size: 15px; color: var(--muted); margin-bottom: 10px; }
+  .job-sub {
+    font-family: var(--mono); font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--muted); margin: 18px 0 6px;
+  }
+  .techenv {
+    font-family: var(--mono); font-size: 12px; color: var(--muted);
+    border-left: 2px solid var(--line); padding: 6px 0 6px 12px;
+    margin: 14px 0 4px; line-height: 1.7;
+  }
+  .techenv b { color: var(--text); font-weight: 600; }
+
+  /* Competency grid */
+  .comp { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 22px; margin: 18px 0; }
+  @media (max-width: 700px) { .comp { grid-template-columns: 1fr; } }
+  .comp .cell {
+    background: var(--surface); border: 1px solid var(--line);
+    border-top: 2px solid var(--accent); border-radius: 2px; padding: 12px 15px;
+  }
+  .comp .k {
+    font-family: var(--mono); font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.08em; color: var(--accent); display: block; margin-bottom: 5px;
+  }
+  .comp p { font-size: 14px; color: var(--muted); margin: 0; }
+
+  .callout {
+    border: 1px solid var(--line-soft); border-left: 2px solid var(--ok);
+    border-radius: 2px; padding: 14px 18px; margin: 22px 0;
+    font-size: 15px;
+  }
+
+  footer {
+    margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--line);
+    font-family: var(--mono); font-size: 12.5px; color: var(--muted); line-height: 1.8;
+  }
+  footer b { color: var(--text); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <div class="site-name">davidrodgers<span class="tld">.com</span></div>
+  <nav>
+    <a href="../#articles">Articles</a>
+    <a href="https://github.com/brainchillz">Code</a>
+    <a href="../fun/">Fun</a>
+    <a href="./" class="active">About</a>
+  </nav>
+</header>
+
+<div class="eyebrow">About</div>
+<h1>David Rodgers</h1>
+<p class="role">Infrastructure Architect</p>
+<p class="disciplines">
+  <span>Cloud Platforms</span> · <span>Distributed Systems</span> ·
+  <span>Security Architecture</span> · <span>AI Infrastructure</span> ·
+  <span>Platform Engineering</span>
+</p>
+
+<div class="prose">
+<p>Infrastructure architect with nearly 30 years of experience designing, implementing, and
+evolving enterprise infrastructure across networking, security, distributed systems, cloud
+computing, and AI-enabled operations. Career experience spans early broadband Internet,
+enterprise security, software-defined infrastructure, large-scale cloud platforms, and the
+practical application of AI to infrastructure operations.</p>
+
+<p>Known for remaining engaged throughout the complete technical lifecycle — from
+architecture and detailed design through proof-of-concept development, production
+implementation, automation, operations, and continuous evolution. Combines strategic
+architecture with hands-on engineering to turn difficult technical problems into scalable,
+supportable production platforms.</p>
+</div>
+
+<h2>Selected career highlights</h2>
+
+<div class="prose">
+<ul>
+  <li>Defined infrastructure strategy for VMware Cloud Foundation validation environments
+  spanning thousands of physical servers, thousands of software components, hundreds of
+  concurrent Software-Defined Data Centers, and geographically distributed data centers.</li>
+  <li>Designed and implemented AI-powered operational tooling using Large Language Models to
+  automate vSphere support analysis and establish the foundation for AI-driven Site
+  Reliability Engineering.</li>
+  <li>Contributed to the architecture, implementation, deployment, and lifecycle management
+  of VMware Cloud Director as a Service and VMware Database as a Service.</li>
+  <li>Architected the networking foundations for Sun Grid and Sun Cloud, two early enterprise
+  cloud computing platforms, and designed the network architecture for Project Blackbox.</li>
+  <li>Created security tooling and operational security frameworks for early cloud platforms
+  when suitable commercial products did not yet exist.</li>
+  <li>Architected highly available infrastructure supporting a real-time advertising exchange
+  processing millions of HTTP requests.</li>
+  <li>Reduced enterprise WAN operating costs by approximately $70,000 per month by replacing
+  a nationwide Frame Relay network with a secure VPN architecture.</li>
+  <li>Engineered Nebraska's first cable modem broadband network.</li>
+</ul>
+</div>
+
+<h2>Core competencies</h2>
+
+<div class="comp">
+  <div class="cell">
+    <span class="k">Architecture</span>
+    <p>Enterprise Infrastructure · Platform Architecture · Distributed Systems ·
+    Software-Defined Infrastructure · Data Center Design · Infrastructure Strategy ·
+    Technical Leadership</p>
+  </div>
+  <div class="cell">
+    <span class="k">Cloud platforms</span>
+    <p>VMware Cloud Foundation · VMware Cloud Director · Cloud Director as a Service ·
+    Database as a Service · VMware Integrated OpenStack · Kubernetes · vSphere · NSX · vSAN</p>
+  </div>
+  <div class="cell">
+    <span class="k">Security</span>
+    <p>Security Architecture · Cloud Security · Network Security · VPN · High Availability ·
+    Identity · Infrastructure Hardening · Security Tooling</p>
+  </div>
+  <div class="cell">
+    <span class="k">Automation and AI</span>
+    <p>Infrastructure Automation · AI and LLM Integration · Site Reliability Engineering ·
+    Infrastructure as Code · Operational Tooling · CI/CD</p>
+  </div>
+  <div class="cell">
+    <span class="k">Infrastructure</span>
+    <p>Linux · FreeBSD · Enterprise Networking · BGP · Virtualization · Multi-Tenant
+    Platforms · Internet-Facing Services</p>
+  </div>
+</div>
+
+<h2>Professional experience</h2>
+
+<div class="job">
+  <div class="job-head">
+    <div class="job-co">VMware by Broadcom</div>
+    <div class="job-when">2015 – Present</div>
+  </div>
+  <div class="job-title">Engineer — Infrastructure Architecture and Platform Engineering</div>
+  <div class="prose">
+  <p>Lead and contribute to infrastructure architecture, platform engineering, cloud service
+  delivery, validation infrastructure, automation, and AI-enabled operations across large
+  VMware environments. Work bridges architectural strategy and implementation, with an
+  emphasis on repeatability, scale, and operational usefulness.</p>
+
+  <div class="job-sub">AI-enabled operations</div>
+  <ul>
+    <li>Architected and delivered proof-of-concept Large Language Model solutions that
+    transform vSphere support bundles, logs, and diagnostic artifacts into concise AI-generated
+    analyses, accelerating the first stages of root-cause investigation.</li>
+    <li>Designed the architectural framework for AI-driven Site Reliability Engineering,
+    enabling intelligent execution of infrastructure runbooks and automated operational
+    workflows.</li>
+    <li>Evaluated practical applications of generative AI in infrastructure diagnostics,
+    operational analysis, and engineering workflows, focusing on problems where AI could
+    reduce repetitive investigation and improve time to insight.</li>
+    <li>Developed proof-of-concept approaches that connected AI analysis with existing
+    infrastructure data and operational processes rather than treating AI as an isolated
+    demonstration.</li>
+  </ul>
+
+  <div class="job-sub">VMware Cloud Foundation validation</div>
+  <ul>
+    <li>Architected and defined infrastructure strategy for VMware Cloud Foundation validation
+    environments spanning thousands of software components, thousands of physical servers,
+    hundreds of concurrent Software-Defined Data Centers, and multiple geographically
+    distributed data centers.</li>
+    <li>Established architectural patterns for large shared validation environments requiring
+    repeatable deployment, isolation, capacity management, resilience, and continuous
+    lifecycle evolution.</li>
+    <li>Translated the requirements of complex multi-product validation into physical and
+    virtual infrastructure designs capable of supporting large numbers of concurrent
+    engineering environments.</li>
+    <li>Designed infrastructure automation frameworks that converted manual deployment,
+    validation, and operational processes into repeatable, scalable workflows.</li>
+    <li>Built and refined deployment automation supporting multi-site cloud validation
+    environments and the rapid creation, reconfiguration, and retirement of test
+    infrastructure.</li>
+    <li>Worked across engineering organizations to turn architecture concepts into
+    production-ready infrastructure and help define long-term platform direction.</li>
+  </ul>
+
+  <div class="job-sub">Cloud services and platform engineering</div>
+  <ul>
+    <li>Contributed to the architecture, implementation, deployment, and lifecycle management
+    of VMware Cloud Director as a Service.</li>
+    <li>Contributed to the architecture, implementation, deployment, and lifecycle management
+    of VMware Database as a Service.</li>
+    <li>Applied platform engineering principles to improve deployment consistency, operational
+    repeatability, and service lifecycle management across complex VMware environments.</li>
+    <li>Served as a technical resource across teams, connecting cloud architecture,
+    infrastructure implementation, automation, and operational requirements.</li>
+  </ul>
+  </div>
+  <p class="techenv"><b>Technology environment:</b> VMware Cloud Foundation · vSphere · NSX ·
+  vSAN · VMware Cloud Director · VMware Integrated OpenStack · Kubernetes · Linux · AI/LLM
+  integration · infrastructure automation · CI/CD · SRE</p>
+</div>
+
+<div class="job">
+  <div class="job-head">
+    <div class="job-co">CSC</div>
+    <div class="job-when">2014 – 2015</div>
+  </div>
+  <div class="job-title">Principal Architect</div>
+  <div class="prose">
+  <p>Architected enterprise Infrastructure-as-a-Service platforms and implementation
+  strategies for private cloud adoption using VMware Software-Defined Data Center
+  technologies.</p>
+  <ul>
+    <li>Architected enterprise Infrastructure-as-a-Service platforms built on VMware
+    Software-Defined Data Center technologies.</li>
+    <li>Designed private cloud infrastructure leveraging VMware Integrated OpenStack to
+    provide scalable, self-service infrastructure capabilities.</li>
+    <li>Produced architecture guidance, technical designs, and implementation strategies
+    supporting enterprise cloud adoption.</li>
+    <li>Connected compute, networking, storage, security, and operational requirements into
+    cohesive platform architectures.</li>
+    <li>Collaborated with engineering, security, operations, and strategic technology partners
+    to integrate emerging cloud technologies into enterprise platforms.</li>
+    <li>Helped move cloud initiatives from conceptual architecture toward implementable,
+    supportable production systems.</li>
+  </ul>
+  </div>
+  <p class="techenv"><b>Technology environment:</b> VMware Software-Defined Data Center ·
+  VMware Integrated OpenStack · vSphere · NSX · vSAN · OpenStack · enterprise security ·
+  private cloud</p>
+</div>
+
+<div class="job">
+  <div class="job-head">
+    <div class="job-co">Valassis / Brand.net</div>
+    <div class="job-when">2012 – 2014</div>
+  </div>
+  <div class="job-title">Senior DevOps Engineer</div>
+  <div class="prose">
+  <p>Designed and operated highly available infrastructure for a real-time advertising
+  exchange where latency, reliability, deployment speed, and horizontal scale directly
+  affected the business.</p>
+  <ul>
+    <li>Architected highly available infrastructure supporting one of the industry's largest
+    real-time advertising exchanges processing millions of HTTP requests across distributed
+    production environments.</li>
+    <li>Designed infrastructure and security architectures optimized for very low-latency
+    request processing, horizontal scalability, and continuous availability.</li>
+    <li>Created deployment automation and operational tooling that accelerated platform
+    delivery while improving consistency and reliability.</li>
+    <li>Developed infrastructure patterns supporting rapid growth, continuous deployment, and
+    resilient Internet-facing services.</li>
+    <li>Improved the repeatability of production changes by replacing manual procedures with
+    automated deployment and operational workflows.</li>
+    <li>Worked across application and infrastructure concerns to ensure the platform could
+    scale without sacrificing operational control or security.</li>
+  </ul>
+  </div>
+  <p class="techenv"><b>Technology environment:</b> Linux · distributed systems · HTTP
+  services · high availability · low-latency infrastructure · deployment automation ·
+  security architecture · continuous delivery</p>
+</div>
+
+<div class="job">
+  <div class="job-head">
+    <div class="job-co">Dell Force10 Networks</div>
+    <div class="job-when">2010 – 2012</div>
+  </div>
+  <div class="job-title">Senior Architect, CTO Office</div>
+  <div class="prose">
+  <p>Created architectures, reference designs, and proof-of-concept platforms within the CTO
+  Office to evaluate emerging infrastructure technologies and inform future product
+  direction.</p>
+  <ul>
+    <li>Architected next-generation networking solutions and proof-of-concept platforms within
+    the CTO Office.</li>
+    <li>Designed and implemented reference architectures demonstrating programmable
+    networking, automation, and software-defined infrastructure concepts.</li>
+    <li>Developed prototype technologies to test architectural ideas, validate future
+    capabilities, and expose implementation constraints early.</li>
+    <li>Combined architecture and hands-on engineering to ensure strategic concepts could be
+    demonstrated as working systems rather than remaining presentation-only proposals.</li>
+    <li>Collaborated with strategic customers including Facebook, Google, Twitter, Oracle,
+    Dell, Zynga, and Joyent to evaluate large-scale networking architectures and emerging
+    infrastructure requirements.</li>
+    <li>Translated customer-scale challenges and technology trends into practical architecture
+    experiments and proof-of-concept implementations.</li>
+  </ul>
+  </div>
+  <p class="techenv"><b>Technology environment:</b> Data center networking · programmable
+  networking · software-defined networking · automation · reference architecture ·
+  proof-of-concept engineering · Linux</p>
+</div>
+
+<div class="job">
+  <div class="job-head">
+    <div class="job-co">Sun Microsystems</div>
+    <div class="job-when">2005 – 2010</div>
+  </div>
+  <div class="job-title">Senior Engineer — Networks and Security</div>
+  <div class="prose">
+  <p>Designed networking and security foundations for early cloud computing platforms and
+  modular data center systems, working at a time when many required operational and security
+  capabilities had to be invented rather than purchased.</p>
+
+  <div class="job-sub">Sun Grid and Sun Cloud</div>
+  <ul>
+    <li>Architected the networking foundation for Sun Grid and Sun Cloud, defining the network
+    architecture supporting two of the industry's earliest enterprise cloud computing
+    platforms.</li>
+    <li>Designed network services and connectivity patterns for distributed, multi-tenant
+    cloud infrastructure operating across geographically separated data centers.</li>
+    <li>Engineered globally distributed BGP routing infrastructure connecting cloud data
+    centers and supporting resilient Internet connectivity.</li>
+    <li>Addressed the operational realities of early cloud platforms, including scale,
+    segmentation, availability, routing control, and secure service delivery.</li>
+    <li>Worked across infrastructure and engineering organizations to move early cloud
+    architecture from concept into deployable and supportable platforms.</li>
+  </ul>
+
+  <div class="job-sub">Project Blackbox</div>
+  <ul>
+    <li>Designed the networking architecture for Project Blackbox, later released as the Sun
+    MD20 Modular Data Center.</li>
+    <li>Defined network integration approaches for a portable, modular data center that had to
+    connect reliably with enterprise and service-provider environments.</li>
+    <li>Helped bring modular data center concepts into practical enterprise computing by
+    connecting physical design, networking, security, and operational requirements.</li>
+  </ul>
+
+  <div class="job-sub">Security engineering and leadership</div>
+  <ul>
+    <li>Created security tooling and operational security frameworks protecting Sun Grid and
+    Sun Cloud where suitable commercial products did not yet exist.</li>
+    <li>Developed practical controls around early cloud platforms so security requirements
+    could be enforced within real operational workflows.</li>
+    <li>Selected for the Sun Microsystems Engineering Mentor Program in recognition of
+    technical excellence and contributions across engineering organizations.</li>
+    <li>Served as a trusted technical resource on complex networking and security problems
+    spanning multiple teams and platforms.</li>
+  </ul>
+  </div>
+  <p class="techenv"><b>Technology environment:</b> Enterprise and cloud networking · BGP ·
+  distributed data centers · network security · security tooling · multi-tenant
+  infrastructure · modular data centers</p>
+</div>
+
+<div class="job">
+  <div class="job-head">
+    <div class="job-co">KDSI</div>
+    <div class="job-when">1999 – 2005</div>
+  </div>
+  <div class="job-title">Network/System Engineer</div>
+  <div class="prose">
+  <p>Held end-to-end responsibility for enterprise infrastructure architecture, design,
+  implementation, and operations. Built enterprise-class capabilities with open-source
+  technologies under tight budget constraints and with substantial technical autonomy.</p>
+  <ul>
+    <li>Served as the primary infrastructure architect with responsibility for enterprise
+    networking, Linux infrastructure, security architecture, and data center design.</li>
+    <li>Owned the complete technical lifecycle: requirements, architecture, detailed design,
+    implementation, troubleshooting, operational tooling, and ongoing evolution.</li>
+    <li>Architected and implemented a secure enterprise VPN that replaced a nationwide Frame
+    Relay WAN, reducing operating costs by approximately $70,000 per month.</li>
+    <li>Designed highly available infrastructure using open-source technologies to deliver
+    capabilities that would traditionally have required substantially larger capital
+    investments.</li>
+    <li>Created security architectures, operational tooling, and infrastructure standards
+    supporting enterprise authentication, messaging, DNS, web services, and Internet
+    connectivity.</li>
+    <li>Integrated networking, systems, security, and application services into a coherent
+    enterprise platform rather than treating them as isolated domains.</li>
+    <li>Solved difficult infrastructure problems through practical engineering and open-source
+    software when commercial products were financially out of reach.</li>
+    <li>Established repeatable operational practices that improved maintainability,
+    reliability, and control across the environment.</li>
+  </ul>
+  </div>
+  <p class="techenv"><b>Technology environment:</b> Linux · open-source infrastructure · VPN ·
+  enterprise networking · network security · DNS · messaging · authentication · web services ·
+  high availability · data center architecture</p>
+</div>
+
+<div class="job">
+  <div class="job-head">
+    <div class="job-co">Lightspeed Internet (Charter Communications)</div>
+    <div class="job-when">1996 – 1999</div>
+  </div>
+  <div class="job-title">Network/System Administrator</div>
+  <div class="prose">
+  <p>Helped build and operate an early regional Internet service provider during the rapid
+  expansion of commercial Internet access and broadband connectivity.</p>
+  <ul>
+    <li>Engineered Nebraska's first cable modem broadband network, helping deliver one of the
+    region's earliest high-speed Internet services.</li>
+    <li>Designed Linux and FreeBSD infrastructure that replaced Microsoft Windows NT systems,
+    reducing operational complexity and licensing costs.</li>
+    <li>Built and supported the networking and systems foundation required for a growing
+    Internet service provider.</li>
+    <li>Applied open-source systems to improve reliability, flexibility, and operational
+    control during a period of rapid network growth.</li>
+    <li>Supported expansion of the network and operational environment through the company's
+    acquisition by Charter Communications.</li>
+  </ul>
+  </div>
+  <p class="techenv"><b>Technology environment:</b> Cable modem broadband · Internet
+  networking · Linux · FreeBSD · systems administration · ISP infrastructure</p>
+</div>
+
+<h2>Technical philosophy</h2>
+
+<div class="callout">
+  Successful infrastructure architecture requires more than strategy documents and reference
+  diagrams. The strongest architectures are those that can be implemented, automated,
+  operated, and continuously evolved. Throughout my career I have focused on bridging
+  architectural vision and production reality by remaining deeply engaged in the technical
+  implementation of the major platforms I design.
+</div>
+
+<footer>
+  <b>Elsewhere:</b> <a href="https://github.com/brainchillz">github.com/brainchillz</a> ·
+  <a href="mailto:david@davidrodgers.com">david@davidrodgers.com</a> ·
+  <a href="../#articles">the articles</a><br>
+  Self-contained page — no external requests; light/dark follows your OS.
+</footer>
+
+</div>
+</body>
+</html>
