@@ -144,10 +144,42 @@
     margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--line);
     font-family: var(--mono); font-size: 12.5px; color: var(--muted); line-height: 1.8;
   }
+
+  /* Site masthead — shared with the front page. */
+  header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    flex-wrap: wrap; gap: 14px 24px;
+    padding-bottom: 18px; border-bottom: 1px solid var(--line);
+    margin-bottom: 40px;
+  }
+  .site-name {
+    font-family: var(--mono); font-size: 20px; font-weight: 700;
+    letter-spacing: -0.01em; color: var(--text);
+  }
+  .site-name a { color: var(--text); }
+  .site-name a:hover { text-decoration: none; }
+  .site-name .tld { color: var(--accent); }
+  nav { display: flex; gap: 26px; }
+  nav a {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--muted);
+    padding-bottom: 4px; border-bottom: 2px solid transparent;
+  }
+  nav a:hover { color: var(--text); text-decoration: none; }
+  nav a.active { color: var(--accent); border-bottom-color: var(--accent); }
 </style>
 </head>
 <body>
 <div class="page">
+
+<header>
+  <div class="site-name"><a href="../../#articles">davidrodgers<span class="tld">.com</span></a></div>
+  <nav>
+    <a href="../../#articles" class="active">Articles</a>
+    <a href="https://github.com/brainchillz">Code</a>
+    <a href="../../about/">About</a>
+  </nav>
+</header>
 
 <div class="eyebrow">Apple Silicon · Linux environments</div>
 <h1>WSL-class Linux on a Mac, assembled from parts Apple already shipped</h1>

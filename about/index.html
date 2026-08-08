@@ -46,12 +46,14 @@
     display: flex; align-items: baseline; justify-content: space-between;
     flex-wrap: wrap; gap: 14px 24px;
     padding-bottom: 18px; border-bottom: 1px solid var(--line);
-    margin-bottom: 10px;
+    margin-bottom: 0;
   }
   .site-name {
     font-family: var(--mono); font-size: 20px; font-weight: 700;
     letter-spacing: -0.01em; color: var(--text);
   }
+  .site-name a { color: var(--text); }
+  .site-name a:hover { text-decoration: none; }
   .site-name .tld { color: var(--accent); }
   nav { display: flex; gap: 26px; }
   nav a {
@@ -133,11 +135,10 @@
 <div class="page">
 
 <header>
-  <div class="site-name">davidrodgers<span class="tld">.com</span></div>
+  <div class="site-name"><a href="../#articles">davidrodgers<span class="tld">.com</span></a></div>
   <nav>
     <a href="../#articles">Articles</a>
     <a href="https://github.com/brainchillz">Code</a>
-    <a href="../fun/">Fun</a>
     <a href="./" class="active">About</a>
   </nav>
 </header>
