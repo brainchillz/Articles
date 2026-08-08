@@ -330,15 +330,39 @@ only the original x86-64 baseline. RHEL 9 and everything rebuilt from it are com
 and the kernel panics because init died. Ubuntu still targets the older baseline, which is
 precisely why it worked and hid the problem.</p>
 
-<p>One flag at build time fixes it for every clone: <code>--cpu x86-64-v2-AES</code>.</p>
+<p>One flag at build time fixed it: <code>--cpu x86-64-v2-AES</code>. I set it as the
+default for every template and considered the matter closed.</p>
+
+<p>It wasn't. Building the Rocky <b>10</b> template later produced the identical panic with
+one character different:</p>
 </div>
+
+<pre><code><span class="wn">Fatal glibc error: CPU does not support x86-64-v3</span></code></pre>
+
+<div class="prose">
+<p>RHEL 10 raised the baseline again. So the setting is not a site-wide default at all — it
+is a property of the guest OS, and it moves. It now lives in the per-OS profile, where
+<code>rocky-10</code> declares <code>CPU_TYPE="x86-64-v3"</code> and overrides the site
+default, because an OS requirement outranks a site preference.</p>
+
+<p>The builder also refuses, up front, to build a template for a baseline the host cannot
+provide — checking for <code>avx2</code> before it starts rather than letting you find out
+from a panic much later:</p>
+</div>
+
+<pre><code><span class="pr">$</span> ./build-template.sh rocky-10
+<span class="ok">==&gt;</span> CPU model: <span class="hl">x86-64-v3</span> (host has avx2)
+<span class="ok">==&gt;</span> SELinux policy detected — will relabel after customising</code></pre>
 
 <div class="callout">
   <span class="k">The lesson</span>
   A hypervisor's defaults encode assumptions about what year it is. <code>kvm64</code> is a
   conservative, maximally-compatible choice that quietly stopped being compatible with a
-  whole distro family. The failure surfaces as a kernel panic five layers away from the
-  setting that caused it.
+  whole distro family — and then, one major release later, stopped being compatible at a
+  <em>different</em> level. The first fix taught me the wrong lesson: I treated a moving
+  target as a constant, and it moved within the same afternoon. The failure surfaces as a
+  kernel panic five layers away from the setting that caused it, and the panic text is the
+  only thing that names the real number.
 </div>
 
 <h3>2. SELinux labels, invisibly wrong</h3>
@@ -479,7 +503,8 @@ than the first.</p>
   <a href="https://github.com/brainchillz/VC-Deployer-Python">VC-Deployer</a> (vCenter) ·
   <a href="https://github.com/brainchillz/ESXI-VM-Deployer">ESXI-VM-Deployer</a> (standalone ESXi)<br>
   Screenshots show demo defaults, not a live environment. Timings are from a single-node
-  Proxmox VE 9.2 host with ZFS-backed storage; linked clones are why they are that fast.<br>
+  Proxmox VE 9.2 host with ZFS-backed storage; linked clones are why they are that fast.
+  Four templates in service: Ubuntu 24.04 and 26.04, Rocky 9 and 10.<br>
   Self-contained page — no external requests; light/dark follows your OS.
 </footer>
 
