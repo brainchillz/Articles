@@ -172,6 +172,20 @@ occasional thing built because it should exist.</p>
   <a class="readmore" href="Articles/PX13-AUDIO-STORY/index.html">Read the article</a>
 </article>
 
+<article class="post">
+  <div class="meta"><b>Virtualization · Field notes</b></div>
+  <h2><a href="Articles/PROXMOX-PORT-STORY/index.html">The deployer didn't need porting. Two
+  files did.</a></h2>
+  <p>A tool that builds golden images and clones them into working VMs was written against
+  vCenter, then forked for bare ESXi. Moving it to Proxmox looked like the expensive one —
+  new vendor, new API, new vocabulary — and turned out to be two files, because Proxmox has
+  a real cloud-init datasource and that deleted the most intricate code in the project. What
+  actually cost time was underneath the API: a default CPU model that panics
+  <code>glibc</code> on every RHEL 9 rebuild, offline image edits that land with no SELinux
+  label, and a clone that is instant until one innocuous dropdown makes it expensive.</p>
+  <a class="readmore" href="Articles/PROXMOX-PORT-STORY/index.html">Read the article</a>
+</article>
+
 </div>
 
 <footer>

@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The deployer didn't need porting — moving a VM provisioning stack from vSphere to Proxmox</title>
+<style>
+  /* Same token system as the rest of the family. */
+  :root {
+    --bg: #efece6; --surface: #f9f7f3; --well: #efece6;
+    --line: #d5cfc4; --line-soft: #e3ded5;
+    --text: #2b2721; --muted: #767061;
+    --accent: #a84a0c; --ok: #5f7d3d; --warn: #96701d; --crit: #a83440;
+    --pool: #33708f;
+    --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1b1c1e; --surface: #212225; --well: #161719;
+      --line: #3a3833; --line-soft: #2f2e2b;
+      --text: #d8d4cc; --muted: #8f8b82;
+      --accent: #c1550f; --ok: #82a35c; --warn: #d09c3c; --crit: #cf545e;
+      --pool: #5f93ad;
+    }
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font: 16px/1.65 var(--sans);
+    padding: 48px 20px 90px;
+  }
+  .page { max-width: 880px; margin: 0 auto; }
+  .prose { max-width: 72ch; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 12px;
+  }
+  h1 { font-size: 34px; line-height: 1.2; letter-spacing: -0.01em; font-weight: 750;
+       text-wrap: balance; margin-bottom: 14px; }
+  .dek { font-size: 18px; color: var(--muted); max-width: 62ch; margin-bottom: 10px; }
+  .byline { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-bottom: 44px; }
+  .byline b { color: var(--text); font-weight: 600; }
+
+  h2 {
+    font-size: 22px; font-weight: 700; margin: 54px 0 14px;
+    padding-top: 22px; border-top: 1px solid var(--line);
+  }
+  h3 { font-size: 16px; font-weight: 700; margin: 26px 0 8px; }
+  p { margin: 0 0 14px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: var(--mono); font-size: 0.86em;
+    background: var(--well); border: 1px solid var(--line-soft);
+    border-radius: 2px; padding: 1px 5px;
+  }
+  pre {
+    font-family: var(--mono); font-size: 13px; line-height: 1.7;
+    background: var(--well); border: 1px solid var(--line-soft);
+    border-radius: 2px; padding: 12px 14px; margin: 0 0 14px;
+    overflow-x: auto;
+  }
+  pre code { background: none; border: none; padding: 0; font-size: inherit; }
+  pre .c { color: var(--muted); }
+  pre .pr { color: var(--accent); }
+  pre .ok { color: var(--ok); }
+  pre .wn { color: var(--crit); }
+  pre .hl { color: var(--text); font-weight: 650; }
+  ul, ol { margin: 0 0 14px 1.3em; }
+  li { margin-bottom: 6px; }
+  strong { font-weight: 650; }
+
+  .callout {
+    border: 1px solid var(--line-soft); border-left: 2px solid var(--accent);
+    border-radius: 2px; padding: 12px 16px; margin: 18px 0;
+    font-size: 14.5px;
+  }
+  .callout.olive { border-left-color: var(--ok); }
+  .callout .k { font-family: var(--mono); font-size: 11px; text-transform: uppercase;
+                letter-spacing: 0.08em; color: var(--accent); display: block; margin-bottom: 4px; }
+  .callout.olive .k { color: var(--ok); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; margin: 18px 0 8px;
+          background: var(--surface); border: 1px solid var(--line); }
+  th {
+    text-align: left; padding: 8px 12px; background: var(--well);
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted);
+    border-bottom: 1px solid var(--line);
+  }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td.mono { font-family: var(--mono); font-size: 13px; color: var(--text); }
+  td.verb { font-family: var(--mono); font-size: 13px; color: var(--muted); white-space: nowrap; }
+  td:first-child { font-family: var(--mono); font-size: 13px; color: var(--text); white-space: nowrap; }
+  .tablewrap { overflow-x: auto; }
+
+  .steps-list { counter-reset: step; list-style: none; margin: 18px 0; padding: 0; }
+  .steps-list li {
+    counter-increment: step; position: relative;
+    padding: 10px 0 10px 44px; border-bottom: 1px solid var(--line-soft);
+  }
+  .steps-list li::before {
+    content: counter(step); position: absolute; left: 0; top: 10px;
+    width: 26px; height: 26px; border: 1px solid var(--accent); border-radius: 2px;
+    color: var(--accent); font-family: var(--mono); font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .steps-list b { font-weight: 650; }
+
+  figure { margin: 22px 0 26px; }
+  figure img {
+    display: block; width: 100%; height: auto;
+    border: 1px solid var(--line); border-radius: 3px;
+  }
+  figure.narrow { max-width: 560px; }
+  figcaption {
+    font-family: var(--mono); font-size: 12px; color: var(--muted);
+    margin-top: 8px; line-height: 1.5;
+  }
+  .fig-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 700px) { .fig-pair { grid-template-columns: 1fr; } }
+
+  footer {
+    margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--line);
+    font-family: var(--mono); font-size: 12.5px; color: var(--muted); line-height: 1.8;
+  }
+  footer b { color: var(--text); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<div class="eyebrow">Virtualization · Field notes</div>
+<h1>The deployer didn't need porting. Two files did.</h1>
+<p class="dek">A tool that builds golden images and clones them into working VMs was written
+against vCenter, then ported to bare ESXi. Moving it to Proxmox looked like the big one —
+different vendor, different API, different everything. It wasn't. Here is what actually had
+to change, and the three things that only broke once it was running.</p>
+<p class="byline">The stack: <b>Proxmox-Deployer</b> — a Python client (CLI + FastAPI web UI)
+on the Proxmox VE REST API, ported from <b>VC-Deployer</b> (vCenter) · target:
+<b>Proxmox VE 9.2</b> · August 2026 · ~12 min read.</p>
+
+<div class="prose">
+<p>The tool is unglamorous and I use it constantly. It builds golden images from upstream
+cloud images, and then turns one into a running, reachable VM: pick a template, give it a
+name and an address, get back an IP you can SSH into. Sixty seconds, no console, no
+clicking through a wizard.</p>
+
+<p>It was written for vCenter. Later it was forked for standalone ESXi hosts, which have no
+vCenter to clone through — that port replaced exactly one operation and kept everything
+else. So when a Proxmox node joined the estate, the question was how much of the tool was
+really about VMware, and how much was about <em>deploying a VM</em>.</p>
+
+<p>The honest answer surprised me. Two files carried the entire port. Everything else — the
+web UI, the job runner, the settings dialog, the IPAM integration, the CLI's flags — moved
+across as renames.</p>
+</div>
+
+<h2>What a deploy actually is</h2>
+
+<div class="prose">
+<p>Strip the vendor away and a deploy is four steps: <b>copy a template</b>, <b>hand the
+copy its identity</b>, <b>power it on</b>, <b>find out what address it got</b>. Every
+hypervisor does all four. They just disagree about the second and fourth.</p>
+
+<p>Step two is the interesting one, because it is the only moment you get to talk to the
+guest before it exists. The mechanism is cloud-init, which is baked into every modern cloud
+image and looks for its configuration in a "datasource" at first boot. The whole game is
+getting your configuration into a place that image will look.</p>
+
+<p>On vSphere there is no cloud-init datasource in the platform. So VC-Deployer builds the
+NoCloud payloads itself — a metadata document with the network stanza, a user-data document
+with the login, gzips them, base64s them, and pushes them into VMware's
+<code>guestinfo.*</code> key-value channel, where a VMware-specific datasource in the guest
+picks them up. It works, it is well-trodden, and it is about a hundred lines of string
+building that has to be exactly right.</p>
+</div>
+
+<pre><code><span class="c"># VC-Deployer: the config has to be manufactured, compressed and smuggled in</span>
+govc vm.change -vm web01 \
+  -e guestinfo.metadata=<span class="hl">H4sIAAAAAAAAA…</span> \
+  -e guestinfo.metadata.encoding=gzip+base64 \
+  -e guestinfo.userdata=<span class="hl">H4sIAAAAAAAAA…</span> \
+  -e guestinfo.userdata.encoding=gzip+base64</code></pre>
+
+<div class="prose">
+<p>Proxmox has a first-class cloud-init datasource. You set fields on the VM and Proxmox
+builds the NoCloud drive and attaches it for you:</p>
+</div>
+
+<pre><code><span class="c"># Proxmox: the config is just… configuration</span>
+<span class="pr">$</span> qm set 101 <span class="hl">--ciuser</span> ubuntu <span class="hl">--sshkeys</span> "$KEY" \
+              <span class="hl">--ipconfig0</span> ip=10.0.0.50/24,gw=10.0.0.1 \
+              <span class="hl">--nameserver</span> "1.1.1.1 8.8.8.8"</code></pre>
+
+<div class="prose">
+<p>That deleted the most intricate part of the codebase. The renderer, the gzip, the base64,
+the two payload formats — none of it survived the port, and nothing replaced it.</p>
+</div>
+
+<div class="callout">
+  <span class="k">The part I didn't expect</span>
+  Deleting the renderer also deleted a <em>bug class</em>. The vSphere network stanza has to
+  name the guest's interface, because netplan keys its config by interface name. Get it wrong
+  and the VM boots with no network — which is exactly the bug that bit the ESXi port, where
+  Rocky's cloud images come up as <code>eth0</code> while the profile claimed
+  <code>ens192</code>. Proxmox generates network config that matches on <b>MAC address</b>.
+  There is no name to get wrong. The <code>iface</code> field simply stopped existing.
+</div>
+
+<h2>The templates we already had were the wrong templates</h2>
+
+<div class="prose">
+<p>The original plan was the obvious one: we have five built templates, exported as OVAs.
+Push them at Proxmox, which since version 8.3 can import OVA files natively. One evening's
+work.</p>
+
+<p>It would have produced five templates that cannot deploy.</p>
+
+<p>The problem is what template-building <em>means</em>. Our build process doesn't just
+install packages; it pins cloud-init's datasource list to <code>[VMware]</code>, so the
+guest stops probing and reads guestinfo directly. That is the right thing to do on vSphere
+and it is fatal on Proxmox: the NoCloud drive Proxmox attaches would be ignored, cloud-init
+would find nothing, and the VM would boot with no user, no key and no address. The disk
+would import perfectly. The result would be useless.</p>
+
+<p>Underneath that sat a second layer of the same problem — <code>ens192</code> baked into
+the annotation, open-vm-tools installed and qemu-guest-agent absent, VMware paravirtual
+drivers instead of virtio. Fixing all of it means booting each imported VM and re-prepping
+it in the guest, which is most of a template build, started from a worse image.</p>
+
+<p>So the templates get rebuilt from the same upstream cloud images, using the same profile
+metadata. And that turned out to be the easy direction, because the Proxmox build is
+<em>shorter</em> than the vSphere one:</p>
+</div>
+
+<div class="tablewrap">
+<table>
+  <tr><th>Build step</th><th>vSphere</th><th>Proxmox</th></tr>
+  <tr><td>Get the image</td><td>download qcow2</td><td>download qcow2</td></tr>
+  <tr><td>Convert</td><td class="verb">qemu-img → streamOptimized VMDK</td><td class="verb">— none, imports directly</td></tr>
+  <tr><td>Install guest tooling</td><td class="verb">boot with a seed ISO, install open-vm-tools, shut down</td><td class="verb">virt-customize, offline</td></tr>
+  <tr><td>Wrap in a VM</td><td class="verb">hand-built shell (guestId, firmware, controller, adapter)</td><td class="verb">qm create + import-from</td></tr>
+  <tr><td>Mark as template</td><td class="verb">vm.markastemplate</td><td class="verb">qm template</td></tr>
+</table>
+</div>
+
+<div class="prose">
+<p>The seed-ISO prep boot exists on vSphere for one reason: guestinfo can't be read until
+open-vm-tools is installed, so you have to boot the image once to install the thing that
+lets you talk to it. Proxmox reads stock cloud images as they ship, so there is nothing to
+bootstrap. The only in-guest change we make is installing <code>qemu-guest-agent</code>, and
+that can happen offline, on the disk image, with no boot at all.</p>
+</div>
+
+<h2>What the API makes you do differently</h2>
+
+<div class="prose">
+<p>The vSphere client shells out to <code>govc</code>. The Proxmox client speaks HTTP. That
+sounds like a downgrade in convenience and is actually the opposite: it removed the last
+binary dependency, so the CLI now needs nothing but Python, and the container image lost a
+whole layer.</p>
+
+<p>Three things about the Proxmox API shape the client:</p>
+
+<ol class="steps-list">
+  <li><b>Every mutation is asynchronous.</b> Clone, resize, start — they return a task id
+  (a "UPID") and do the work in the background. Miss that and your code races the
+  hypervisor: you'll try to configure a VM that is still being cloned. One
+  <code>_wait_task</code> helper polls the task to completion and asserts a clean exit, and
+  every mutating call goes through it. That single function is what makes the rest of the
+  client look synchronous and boring.</li>
+
+  <li><b>Tokens beat tickets.</b> Password auth returns a ticket that expires in two hours
+  and requires echoing a CSRF header on every write. An API token is one header, forever.
+  The client prefers the token and keeps password auth as a fallback so a fresh install
+  works before anyone has run <code>pveum</code>.</li>
+
+  <li><b>Templates are a real thing.</b> On vSphere the client finds candidates by name —
+  anything matching <code>*-template</code> — then filters by annotation. Proxmox has an
+  actual template flag, so discovery asks the hypervisor instead of guessing from a naming
+  convention.</li>
+</ol>
+
+<p>There was also a small free win. Asking vSphere for its datastores gets you names.
+Asking Proxmox for its storages gets you names <em>and capacity</em>, in the same call — so
+the storage picker can show free space without any extra work.</p>
+</div>
+
+<figure>
+  <img src="images/proxmox-deployer-ui.png" alt="Proxmox VM Deployer web form: template with profile metadata, bridge picker, static/DHCP/IPAM selector, access, compute and storage sections">
+  <figcaption>The form, on Proxmox. "sata_ssd — 7.1T free" comes for free from the storage
+  API; the clone-mode note under the checkbox is the platform leaking a real cost, discussed
+  below.</figcaption>
+</figure>
+
+<h2>Three things that only break when you run it</h2>
+
+<div class="prose">
+<p>The port looked finished well before it worked. Ubuntu deployed on the first try, in
+twenty-two seconds. Rocky Linux hung, and stayed hung, and the reasons were all things no
+amount of reading the API docs would have surfaced.</p>
+</div>
+
+<h3>1. The CPU model that panics an entire distro family</h3>
+
+<div class="prose">
+<p>The Rocky VM booted, reached the kernel, and stopped. No network, no console output past
+early boot, no ARP entry on the bridge — it had never sent a packet. Screenshotting the
+framebuffer through the QEMU monitor showed GRUB and then nothing useful, which sent me
+looking at partition tables and UEFI, both dead ends.</p>
+
+<p>What actually settled it was reading the serial console from a cold boot, which required
+noticing that <code>qm terminal</code> needs a TTY and going around it:</p>
+</div>
+
+<pre><code><span class="pr">$</span> socat <span class="hl">-u</span> UNIX-CONNECT:/var/run/qemu-server/106.serial0 - &gt; boot.log
+…
+[    1.198043] Run /init as init process
+<span class="wn">Fatal glibc error: CPU does not support x86-64-v2</span>
+[    1.200459] Kernel panic - not syncing: Attempted to kill init!</code></pre>
+
+<div class="prose">
+<p>Proxmox creates VMs with the <code>kvm64</code> CPU model by default, which advertises
+only the original x86-64 baseline. RHEL 9 and everything rebuilt from it are compiled for
+<b>x86-64-v2</b>. So glibc — not the kernel, not the bootloader — refuses to start PID 1,
+and the kernel panics because init died. Ubuntu still targets the older baseline, which is
+precisely why it worked and hid the problem.</p>
+
+<p>One flag at build time fixes it for every clone: <code>--cpu x86-64-v2-AES</code>.</p>
+</div>
+
+<div class="callout">
+  <span class="k">The lesson</span>
+  A hypervisor's defaults encode assumptions about what year it is. <code>kvm64</code> is a
+  conservative, maximally-compatible choice that quietly stopped being compatible with a
+  whole distro family. The failure surfaces as a kernel panic five layers away from the
+  setting that caused it.
+</div>
+
+<h3>2. SELinux labels, invisibly wrong</h3>
+
+<div class="prose">
+<p>This one I found while chasing the first, and it is real even though it wasn't the
+culprit. Customising a disk image offline with <code>virt-customize</code> writes files as
+root from outside the guest. On an SELinux-enforcing image — every EL-family cloud image —
+those files land with no security context, and an enforcing guest can hang early in boot
+with no console output and no network. Which is to say: with symptoms indistinguishable
+from the CPU panic.</p>
+
+<p>The builder now checks whether the image carries a policy and relabels when it does. It
+costs one flag and removes an entire category of "the image is haunted".</p>
+</div>
+
+<h3>3. The clone that is instant, until it isn't</h3>
+
+<div class="prose">
+<p>On ZFS and LVM-thin, cloning a template is copy-on-write and effectively free — the
+deploys above finish in twenty-odd seconds because almost no bytes move. But Proxmox cannot
+link a clone across storages. Ask for the VM to land on a different pool than its template
+and you silently get a full copy: the same button, the same form, minutes instead of
+seconds.</p>
+
+<p>That is a UX problem, not a bug, and it is the kind that erodes trust in a tool. The
+client works out which mode a given request implies and says so in the form <em>before</em>
+you commit, rather than letting you discover it from a progress bar that stopped moving.</p>
+</div>
+
+<h2>Porting is a code review you can't skip</h2>
+
+<div class="prose">
+<p>Rewriting a layer forces you to read every line that touches it, with fresh eyes and a
+working test target. That found two bugs that had been sitting in the original.</p>
+
+<p>The first: when a deploy fails partway, the tool destroys the half-built VM so a retry
+isn't blocked by wreckage. That rollback stopped the VM and then deleted it — but on
+Proxmox the stop is asynchronous like everything else, so the delete raced it and failed
+against a VM the hypervisor still considered running. The rollback swallowed the error, as
+rollbacks should, so it failed <em>silently</em> and left exactly the wreckage it existed to
+prevent. I only noticed because a leftover VM was sitting there after a failed test.</p>
+
+<p>The second was older and dumber: the installer copies the CLI's Python files to
+<code>/opt</code>, and its list of files omitted <code>config.py</code> — which the
+hypervisor module imports. Anyone installing the vSphere client that way would get an
+<code>ImportError</code> on first run. It had been shipping like that.</p>
+</div>
+
+<div class="callout olive">
+  <span class="k">Guiding principle</span>
+  If a port is mostly renames, that is evidence the original abstraction was drawn in the
+  right place. If it isn't, the port is telling you where the vendor leaked into code that
+  claimed to be generic. Both are worth knowing, and you only get the answer by doing it.
+</div>
+
+<h2>Where it landed</h2>
+
+<div class="prose">
+<p>Same form, same flags, same job progress, same IPAM integration — a different hypervisor
+underneath. The two screenshots are the same application, three commits apart:</p>
+</div>
+
+<div class="fig-pair">
+  <figure>
+    <img src="images/vc-deployer-ui.png" alt="The vCenter version of the deploy form, showing a portgroup picker, datastore picker and an SSH password-login checkbox">
+    <figcaption>vCenter: network is a <b>portgroup</b>, storage is a <b>datastore</b>, and
+    the template hint carries a <code>nic</code> field.</figcaption>
+  </figure>
+  <figure>
+    <img src="images/proxmox-deployer-ui.png" alt="The Proxmox version of the same form, showing a bridge picker, storage picker with free space and a full-clone checkbox">
+    <figcaption>Proxmox: a <b>bridge</b>, a <b>storage</b> with free space, no
+    <code>nic</code> field to be wrong, and a clone-mode control.</figcaption>
+  </figure>
+</div>
+
+<div class="prose">
+<p>What the port cost, honestly accounted:</p>
+</div>
+
+<div class="tablewrap">
+<table>
+  <tr><th>Component</th><th>Fate</th></tr>
+  <tr><td>hypervisor client</td><td>Rewritten. <code>govc</code> subprocess wrapper → REST client (auth, task-waiting, inventory).</td></tr>
+  <tr><td>deploy engine</td><td>Rewritten, and shorter — the cloud-init renderer was deleted, not replaced.</td></tr>
+  <tr><td>template builder</td><td>New, and simpler than its vSphere counterpart.</td></tr>
+  <tr><td>web UI</td><td>Relabelled. Portgroup→bridge, datastore→storage, plus the clone-mode control.</td></tr>
+  <tr><td>CLI</td><td>Same flags, minus two the platform doesn't expose.</td></tr>
+  <tr><td>config / jobs / IPAM</td><td>Key renames and three strings.</td></tr>
+</table>
+</div>
+
+<div class="prose">
+<p>Two flags didn't survive: the platform has no toggle for SSH password authentication, and
+it derives the guest hostname from the VM name, so the two can no longer differ. Both were
+reachable by writing our own cloud-init payload again — but that requires putting files on
+the node's filesystem, which would have meant giving the web container an SSH key to the
+hypervisor. Trading a pure-API deployment for two rarely-used options is a bad trade, so
+they're documented as gone.</p>
+</div>
+
+<figure class="narrow">
+  <img src="images/proxmox-deployer-settings.png" alt="Settings dialog showing the Proxmox connection section marked locked, with placement and deploy defaults editable">
+  <figcaption>Connection fields stay locked until the app itself has a password set — so an
+  unauthenticated instance can edit placement defaults but never the credentials it holds.
+  Secrets are write-only; the API never returns them.</figcaption>
+</figure>
+
+<div class="callout olive">
+  <span class="k">Honesty clause</span>
+  This is not a migration tool. It does not move running VMs between hypervisors, and it
+  deliberately does not import the vSphere templates — that path is a trap, for the reasons
+  above. Windows is out of scope for now: it needs virtio driver injection and Cloudbase-Init
+  rebound to a different datasource, which is a project rather than a port. And it has been
+  exercised against a single Proxmox node, not a cluster; nothing in the client assumes one
+  node, but I haven't proved that.
+</div>
+
+<h2>Closing thought</h2>
+
+<div class="prose">
+<p>The instinct with a port is to budget for the vendor — new API, new SDK, new vocabulary.
+That part is real but it is mechanical, and it is the part you can see coming.</p>
+
+<p>What actually costs time is the layer below the API, where the platform's defaults meet
+your images: a CPU model chosen for compatibility that a distro family has outgrown, a file
+written from outside the guest with no security label, a clone that is free until an
+innocuous dropdown makes it expensive. None of those appear in any API reference. All three
+appeared within an hour of running the thing for real.</p>
+
+<p>The corollary is cheerful, though. If your tool is honest about where the hypervisor
+ends, most of it is not about the hypervisor at all — and the second port is much cheaper
+than the first.</p>
+</div>
+
+<footer>
+  <b>The stack:</b> <a href="https://github.com/brainchillz/Proxmox-Deployer">Proxmox-Deployer</a> ·
+  <a href="https://github.com/brainchillz/VC-Deployer-Python">VC-Deployer</a> (vCenter) ·
+  <a href="https://github.com/brainchillz/ESXI-VM-Deployer">ESXI-VM-Deployer</a> (standalone ESXi)<br>
+  Screenshots show demo defaults, not a live environment. Timings are from a single-node
+  Proxmox VE 9.2 host with ZFS-backed storage; linked clones are why they are that fast.<br>
+  Self-contained page — no external requests; light/dark follows your OS.
+</footer>
+
+</div>
+</body>
+</html>
